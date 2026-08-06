@@ -1,5 +1,11 @@
 # Security Policy
 
+## PastureStack Fork Reports
+
+Report vulnerabilities that affect the PastureStack-maintained delta through this repository's private GitHub security advisory form. Issues that reproduce on unmodified upstream Hazelcast should also follow the upstream reporting process below. Do not disclose sensitive vulnerability details in a public issue.
+
+The PastureStack maintenance policy and reviewed dependency delta are documented in [SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md).
+
 ## Reporting a Vulnerability
 
 Hazelcast is committed to providing our users with secure software they can rely on.
