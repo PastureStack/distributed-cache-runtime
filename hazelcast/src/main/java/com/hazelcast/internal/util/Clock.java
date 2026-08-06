@@ -131,12 +131,28 @@ public final class Clock {
 
         @Override
         protected long currentTimeMillis() {
-            return System.currentTimeMillis() + offset;
+            return saturatedAdd(System.currentTimeMillis(), offset);
         }
 
         @Override
         protected long toSystemCurrentTimeMillis(long millis) {
-            return millis - offset;
+            return saturatedSubtract(millis, offset);
+        }
+
+        private static long saturatedAdd(long value, long increment) {
+            try {
+                return Math.addExact(value, increment);
+            } catch (ArithmeticException ignored) {
+                return increment >= 0 ? Long.MAX_VALUE : Long.MIN_VALUE;
+            }
+        }
+
+        private static long saturatedSubtract(long value, long decrement) {
+            try {
+                return Math.subtractExact(value, decrement);
+            } catch (ArithmeticException ignored) {
+                return decrement >= 0 ? Long.MIN_VALUE : Long.MAX_VALUE;
+            }
         }
     }
 }

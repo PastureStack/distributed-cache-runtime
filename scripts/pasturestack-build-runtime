@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+runtime_version=5.7.2
+output_dir=${PASTURESTACK_OUTPUT_DIR:-dist}
+jar_source="hazelcast/target/hazelcast-${runtime_version}.jar"
+jar_target="${output_dir}/hazelcast-${runtime_version}.jar"
+
+# Fail before compiling if a reviewed security floor is accidentally reverted.
+if find . -name pom.xml -type f -exec grep -l '<version>5.7.0</version>' {} + | grep -q .; then
+    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.2' >&2
+    exit 1
+fi
+grep -Fq '<spring.boot3.version>3.5.15</spring.boot3.version>' hazelcast-parent/pom.xml
+grep -Fq '<org.springframework6.version>6.2.19</org.springframework6.version>' hazelcast-parent/pom.xml
+grep -Fq '<spring.boot4.version>4.1.0</spring.boot4.version>' hazelcast-parent/pom.xml
+grep -Fq '<org.springframework7.version>7.0.8</org.springframework7.version>' hazelcast-parent/pom.xml
+grep -Fq '<mina.version>2.0.31</mina.version>' hazelcast-parent/pom.xml
+grep -Fq '<postgresql.version>42.7.13</postgresql.version>' hazelcast-parent/pom.xml
+grep -Fq '<tomcat.embed.version>11.0.24</tomcat.embed.version>' hazelcast-parent/pom.xml
+grep -Fq '<hibernate.orm.version>7.4.5.Final</hibernate.orm.version>' hazelcast-parent/pom.xml
+grep -Fq '<aircompressor.version>2.0.3</aircompressor.version>' hazelcast-parent/pom.xml
+grep -Fq '<grpc.version>1.83.1</grpc.version>' hazelcast-parent/pom.xml
+grep -Fq '<netty.version>4.1.137.Final</netty.version>' hazelcast-parent/pom.xml
+grep -A2 -F '<groupId>at.yawk.lz4</groupId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.11.2</version>'
+grep -Fq '<version>${mina.version}</version>' hazelcast-parent/pom.xml
+grep -Fq '<version>${postgresql.version}</version>' hazelcast-parent/pom.xml
+grep -Fq '<version>${tomcat.embed.version}</version>' pom.xml
+grep -Fq '<groupId>org.hibernate.orm</groupId>' hazelcast-it/distribution-it/pom.xml
+grep -Fq '<version>${hibernate.orm.version}</version>' hazelcast-it/distribution-it/pom.xml
+grep -Fq '<version>5.7.2</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>5.7.2</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>5.7.2</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -Fq '<version>3.5.1</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>3.5.1</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>3.5.1</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -A1 -F '<artifactId>maven-install-plugin</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.1.4</version>'
+grep -Fq '<kotlin.compiler.daemon>false</kotlin.compiler.daemon>' pom.xml
+grep -Fq '<release>${jdk.version}</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<jdk.version>8</jdk.version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<arg>-Xlint:-options</arg>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+
+./mvnw -B -pl hazelcast -am \
+    -Dmaven.compiler.fork=false \
+    -Dkotlin.compiler.daemon=false \
+    -Dmaven.test.skip=true \
+    -Dassembly.skipAssembly=true \
+    -Dlicense.skip=true \
+    package
+
+test -f "$jar_source"
+mkdir -p "$output_dir"
+cp "$jar_source" "$jar_target"
+jar_target=$(realpath "$jar_target")
+
+metadata_dir=$(mktemp -d "${TMPDIR:-/tmp}/pasturestack-cache-runtime.XXXXXX")
+cleanup()
+{
+    rm -rf "$metadata_dir"
+}
+trap cleanup EXIT
+
+# The upstream shade configuration intentionally removes dependency license files,
+# but the standalone runtime artifact must still carry the Apache-2.0 text that
+# applies to the core JAR.  Use the upstream-maintained license resource and a
+# stable ZIP timestamp so this legal fix does not introduce build-time variance.
+license_source=hazelcast-build-utils/src/main/resources/LICENSE
+test -f "$license_source"
+mkdir -p "$metadata_dir/META-INF"
+cp "$license_source" "$metadata_dir/META-INF/LICENSE"
+jar --update \
+    --file "$jar_target" \
+    --date=2000-01-01T00:00:00Z \
+    -C "$metadata_dir" META-INF/LICENSE
+
+(
+    cd "$metadata_dir"
+    jar xf "$jar_target" \
+        META-INF/LICENSE \
+        META-INF/NOTICE \
+        META-INF/maven/com.hazelcast/hazelcast/pom.properties \
+        META-INF/maven/com.fasterxml.jackson.core/jackson-core/pom.properties \
+        META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
+        META-INF/maven/tools.jackson.core/jackson-core/pom.properties \
+        META-INF/maven/tools.jackson.core/jackson-databind/pom.properties
+)
+
+cmp "$license_source" "$metadata_dir/META-INF/LICENSE"
+test -s "$metadata_dir/META-INF/NOTICE"
+test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.hazelcast/hazelcast/pom.properties")" = "$runtime_version"
+test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.fasterxml.jackson.core/jackson-core/pom.properties")" = "2.21.5"
+test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties")" = "2.21.5"
+test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/tools.jackson.core/jackson-core/pom.properties")" = "3.1.5"
+test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/tools.jackson.core/jackson-databind/pom.properties")" = "3.1.5"
+
+jar_name=$(basename "$jar_target")
+(
+    cd "$(dirname "$jar_target")"
+    sha256sum "$jar_name" > "${jar_name}.sha256"
+)
+printf 'PASTURESTACK_DISTRIBUTED_CACHE_RUNTIME_OK artifact=%s\n' "$jar_target"

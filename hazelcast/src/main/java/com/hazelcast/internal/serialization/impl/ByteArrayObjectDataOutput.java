@@ -262,25 +262,29 @@ public class ByteArrayObjectDataOutput extends VersionedObjectDataOutput impleme
     @Override
     public void writeShort(final int v) throws IOException {
         ensureAvailable(SHORT_SIZE_IN_BYTES);
-        Bits.writeShort(buffer, pos, (short) v, isBigEndian);
+        Bits.writeShort(buffer, pos, lowOrderShort(v), isBigEndian);
         pos += SHORT_SIZE_IN_BYTES;
     }
 
     @Override
     public void writeShort(int position, final int v) throws IOException {
-        Bits.writeShort(buffer, position, (short) v, isBigEndian);
+        Bits.writeShort(buffer, position, lowOrderShort(v), isBigEndian);
     }
 
     @Override
     public void writeShort(int v, ByteOrder byteOrder) throws IOException {
         ensureAvailable(SHORT_SIZE_IN_BYTES);
-        Bits.writeShort(buffer, pos, (short) v, byteOrder == ByteOrder.BIG_ENDIAN);
+        Bits.writeShort(buffer, pos, lowOrderShort(v), byteOrder == ByteOrder.BIG_ENDIAN);
         pos += SHORT_SIZE_IN_BYTES;
     }
 
     @Override
     public void writeShort(int position, int v, ByteOrder byteOrder) throws IOException {
-        Bits.writeShort(buffer, position, (short) v, byteOrder == ByteOrder.BIG_ENDIAN);
+        Bits.writeShort(buffer, position, lowOrderShort(v), byteOrder == ByteOrder.BIG_ENDIAN);
+    }
+
+    private static short lowOrderShort(int value) {
+        return (short) (value & Character.MAX_VALUE);
     }
 
     @Override

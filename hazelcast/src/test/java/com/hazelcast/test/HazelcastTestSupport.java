@@ -468,7 +468,7 @@ public abstract class HazelcastTestSupport {
     public static void sleepAndStop(AtomicBoolean stop, long durationSeconds) {
         final long startMillis = System.currentTimeMillis();
 
-        for (int i = 0; i < durationSeconds; i++) {
+        for (long i = 0; i < durationSeconds; i++) {
             if (stop.get()) {
                 return;
             }
@@ -1181,7 +1181,7 @@ public abstract class HazelcastTestSupport {
     }
 
     public static void assertTrueAllTheTime(AssertTask task, long durationSeconds) {
-        for (int i = 0; i <= durationSeconds; i++) {
+        for (long i = 0; i <= durationSeconds; i++) {
             try {
                 task.run();
             } catch (Exception e) {
@@ -1201,7 +1201,7 @@ public abstract class HazelcastTestSupport {
         long iterations = timeoutSeconds * 1000 / sleepMillis;
         long deadline = System.currentTimeMillis() + SECONDS.toMillis(timeoutSeconds);
         boolean passedTheDeadline = false;
-        for (int i = 0; i < iterations && !passedTheDeadline; i++) {
+        for (long i = 0; i < iterations && !passedTheDeadline; i++) {
             passedTheDeadline = System.currentTimeMillis() > deadline;
             try {
                 try {
@@ -1318,7 +1318,7 @@ public abstract class HazelcastTestSupport {
         int sleepMillis = 200;
         long iterations = timeoutSeconds * 1000 / sleepMillis;
         long deadline = System.currentTimeMillis() + SECONDS.toMillis(timeoutSeconds);
-        for (int i = 0; i < iterations && System.currentTimeMillis() < deadline; i++) {
+        for (long i = 0; i < iterations && System.currentTimeMillis() < deadline; i++) {
             try {
                 try {
                     task.run();

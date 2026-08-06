@@ -217,7 +217,7 @@ public abstract class RingbufferAbstractTest extends HazelcastTestSupport {
     @Test
     public void addAsync_fail_whenNoSpace() throws Exception {
         // fill the buffer with data
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("old");
         }
 
@@ -260,7 +260,7 @@ public abstract class RingbufferAbstractTest extends HazelcastTestSupport {
         RingbufferConfig c = config.getRingbufferConfig(ringbuffer.getName());
 
         // fill the buffer with data
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("old");
         }
 
@@ -379,7 +379,7 @@ public abstract class RingbufferAbstractTest extends HazelcastTestSupport {
 
     @Test(expected = IllegalArgumentException.class)
     public void readOne_futureSequence() throws Exception {
-        for (int i = 0; i < 2 * ringbuffer.capacity(); i++) {
+        for (long i = 0; i < 2 * ringbuffer.capacity(); i++) {
             ringbuffer.add(String.valueOf(i));
         }
         ringbuffer.readOne(ringbuffer.tailSequence() + 2);
@@ -387,7 +387,7 @@ public abstract class RingbufferAbstractTest extends HazelcastTestSupport {
 
     @Test(expected = StaleSequenceException.class)
     public void readOne_staleSequence() throws Exception {
-        for (int i = 0; i < 2 * ringbuffer.capacity(); i++) {
+        for (long i = 0; i < 2 * ringbuffer.capacity(); i++) {
             ringbuffer.add(String.valueOf(i));
         }
         ringbuffer.readOne(ringbuffer.headSequence() - 1);

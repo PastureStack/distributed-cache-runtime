@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.hazelcast.internal.nio.IOUtil.closeResource;
 import static com.hazelcast.internal.nio.IOUtil.deleteQuietly;
+import static com.hazelcast.internal.util.SecureFileAccess.prepareDirectory;
 import static java.lang.Math.round;
 import static java.lang.String.format;
 
@@ -50,6 +51,7 @@ final class DiagnosticsLogFile implements DiagnosticsLog {
     private final Diagnostics diagnostics;
     private final ILogger logger;
     private final String fileName;
+    private final File loggingDirectory;
     private final DiagnosticsLogWriterImpl logWriter;
 
     private int index;
@@ -63,6 +65,12 @@ final class DiagnosticsLogFile implements DiagnosticsLog {
         this.diagnostics = diagnostics;
         this.logger = diagnostics.logger;
         this.fileName = diagnostics.getFileName() + "-%03d.log";
+        try {
+            this.loggingDirectory = prepareDirectory(
+                    diagnostics.getLoggingDirectory().getPath(), "diagnostics log directory").toFile();
+        } catch (IOException e) {
+            throw new InvalidConfigurationException("Invalid diagnostics log directory", e);
+        }
         this.logWriter = new DiagnosticsLogWriterImpl(diagnostics.isIncludeEpochTime(), diagnostics.logger);
 
         createDirectoryIfDoesNotExist();
@@ -126,13 +134,13 @@ final class DiagnosticsLogFile implements DiagnosticsLog {
     private File newFile(int index, boolean silent) {
         createDirectoryIfDoesNotExist();
         if (!silent && index == 0) {
-            logger.info("Diagnostics log directory is [" + diagnostics.getLoggingDirectory() + "]");
+            logger.info("Diagnostics log directory is [" + loggingDirectory + "]");
         }
-        return new File(diagnostics.getLoggingDirectory(), format(fileName, index));
+        return new File(loggingDirectory, format(fileName, index));
     }
 
     private void createDirectoryIfDoesNotExist() {
-        File dir = diagnostics.getLoggingDirectory();
+        File dir = loggingDirectory;
         if (dir.exists()) {
             if (!dir.isDirectory()) {
                 throw new InvalidConfigurationException("Configured path for diagnostics log file '" + dir

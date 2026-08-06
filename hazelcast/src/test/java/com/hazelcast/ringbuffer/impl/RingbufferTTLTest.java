@@ -69,7 +69,7 @@ public class RingbufferTTLTest extends HazelcastTestSupport {
 
         setup(new RingbufferConfig("foo").setTimeToLiveSeconds(ttl));
 
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("item" + k);
         }
 
@@ -83,8 +83,8 @@ public class RingbufferTTLTest extends HazelcastTestSupport {
         }, maximumVisibleTTL);
 
         // and we verify that the slots are nulled so we don't have a memory leak on our hands.
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
-            assertNull(arrayRingbuffer.getItems()[k]);
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
+            assertNull(arrayRingbuffer.getItems()[Math.toIntExact(k)]);
         }
     }
 
@@ -99,7 +99,7 @@ public class RingbufferTTLTest extends HazelcastTestSupport {
 
         setup(new RingbufferConfig("foo").setTimeToLiveSeconds(ttl).setCapacity(100));
 
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("item" + k);
         }
 
@@ -122,7 +122,7 @@ public class RingbufferTTLTest extends HazelcastTestSupport {
     public void whenTTLDisabled_thenNothingRetires() {
         setup(new RingbufferConfig("foo").setTimeToLiveSeconds(0).setCapacity(100));
 
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("item" + k);
         }
 

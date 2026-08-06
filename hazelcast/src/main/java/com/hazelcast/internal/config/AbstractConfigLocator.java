@@ -22,8 +22,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -31,6 +30,8 @@ import java.util.Collection;
 
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.isAcceptedSuffixConfigured;
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.throwUnacceptedSuffixInSystemProperty;
+import static com.hazelcast.internal.util.SecureFileAccess.newInputStream;
+import static com.hazelcast.internal.util.SecureFileAccess.requireExistingRegularFile;
 import static com.hazelcast.internal.util.Preconditions.checkFalse;
 import static java.util.Objects.requireNonNull;
 
@@ -193,13 +194,11 @@ public abstract class AbstractConfigLocator {
 
             LOGGER.info(String.format("Loading '%s' from the working directory.", configFilePath));
 
-            configurationFile = file;
-            try {
-                in = new FileInputStream(file);
-            } catch (FileNotFoundException e) {
-                throw new HazelcastException(String.format("Failed to open file: %s", file.getAbsolutePath()), e);
-            }
+            configurationFile = requireExistingRegularFile(configFilePath, "working-directory configuration file").toFile();
+            in = newInputStream(configurationFile.getPath(), "working-directory configuration file");
             return true;
+        } catch (IOException e) {
+            throw new HazelcastException(e);
         } catch (RuntimeException e) {
             throw new HazelcastException(e);
         }
@@ -266,7 +265,11 @@ public abstract class AbstractConfigLocator {
 
     private void loadSystemPropertyFileResource(String configSystemProperty) {
         // it's a file
-        configurationFile = new File(configSystemProperty);
+        try {
+            configurationFile = requireExistingRegularFile(configSystemProperty, "configuration file").toFile();
+        } catch (IOException e) {
+            throw new HazelcastException("Invalid configuration file", e);
+        }
         LOGGER.info(String.format("Using configuration file at %s", configurationFile.getAbsolutePath()));
 
         if (!configurationFile.exists()) {
@@ -275,8 +278,8 @@ public abstract class AbstractConfigLocator {
         }
 
         try {
-            in = new FileInputStream(configurationFile);
-        } catch (FileNotFoundException e) {
+            in = newInputStream(configurationFile.getPath(), "configuration file");
+        } catch (IOException e) {
             throw new HazelcastException(String.format("Failed to open file: %s", configurationFile.getAbsolutePath()), e);
         }
 
@@ -296,6 +299,9 @@ public abstract class AbstractConfigLocator {
 
         if (resource.isEmpty()) {
             throw new HazelcastException("classpath resource can't be empty");
+        }
+        if (resource.contains("..") || resource.startsWith("/") || resource.contains("\\")) {
+            throw new HazelcastException("Unsafe classpath configuration resource");
         }
 
         in = resolveResourceAsStream(resource);

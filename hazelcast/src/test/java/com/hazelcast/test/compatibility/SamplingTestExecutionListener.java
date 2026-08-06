@@ -23,16 +23,17 @@ import com.hazelcast.test.TestEnvironment;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestPlan;
 
-import java.io.FileOutputStream;
-import java.io.FileWriter;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.nio.channels.FileChannel;
+import java.io.OutputStream;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import static com.hazelcast.internal.util.StringUtil.isNullOrEmpty;
+import static com.hazelcast.internal.util.SecureFileAccess.newOutputStream;
 import static com.hazelcast.test.compatibility.SamplingConf.FILE_NAME;
 import static com.hazelcast.test.compatibility.SamplingConf.INDEX_FILE_SUFFIX;
 import static com.hazelcast.test.compatibility.SamplingConf.SAMPLES_FILE_SUFFIX;
@@ -53,11 +54,15 @@ public class SamplingTestExecutionListener implements TestExecutionListener {
         }
         LOGGER.info("Sampling is done, serialized classes count: " + SERIALIZED_SAMPLES_PER_CLASS_NAME.keySet().size());
         try (
-                var serializedSamplesOutput = new FileOutputStream(FILE_NAME + SAMPLES_FILE_SUFFIX);
-                var indexOutput = new FileWriter(FILE_NAME + INDEX_FILE_SUFFIX);
-                var serializedSchemaOutput = new FileOutputStream(FILE_NAME + SCHEMA_FILE_SUFFIX)
+                var serializedSamplesOutput = newOutputStream(
+                        Path.of(FILE_NAME + SAMPLES_FILE_SUFFIX), "serialized samples file");
+                var indexOutput = new BufferedWriter(new java.io.OutputStreamWriter(
+                        newOutputStream(Path.of(FILE_NAME + INDEX_FILE_SUFFIX), "serialized samples index file"),
+                        java.nio.charset.StandardCharsets.UTF_8));
+                var serializedSchemaOutput = newOutputStream(
+                        Path.of(FILE_NAME + SCHEMA_FILE_SUFFIX), "serialized schemas file")
         ) {
-            FileChannel samplesOutputChannel = serializedSamplesOutput.getChannel();
+            long samplesPosition = 0;
             // index file line format: className,startOfSample1,lengthOfSample1,startOfSample2,lengthOfSample2,...
 
             for (Map.Entry<String, List<byte[]>> entry : SERIALIZED_SAMPLES_PER_CLASS_NAME.entrySet()) {
@@ -67,8 +72,9 @@ public class SamplingTestExecutionListener implements TestExecutionListener {
                 List<byte[]> samples = entry.getValue();
                 indexOutput.write(entry.getKey());
                 for (byte[] sample : samples) {
-                    indexOutput.write("," + samplesOutputChannel.position() + "," + sample.length);
+                    indexOutput.write("," + samplesPosition + "," + sample.length);
                     serializedSamplesOutput.write(sample);
+                    samplesPosition += sample.length;
                 }
                 indexOutput.write(System.lineSeparator());
             }
@@ -79,7 +85,7 @@ public class SamplingTestExecutionListener implements TestExecutionListener {
         }
     }
 
-    private void writeSchemas(FileOutputStream fileOut) {
+    private void writeSchemas(OutputStream fileOut) {
         Collection<Schema> schemas = SamplingSerializationService.SAMPLED_CLASSES_SCHEMAS.values();
         try (var out = new ObjectOutputStream(fileOut)) {
             Schema.writeSchemas(out, schemas);

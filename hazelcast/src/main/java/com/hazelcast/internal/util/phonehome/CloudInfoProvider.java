@@ -25,7 +25,6 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.hazelcast.internal.util.phonehome.MetricsProvider.fetchWebService;
 import static com.hazelcast.internal.util.phonehome.PhoneHomeMetrics.CLOUD;
 import static com.hazelcast.internal.util.phonehome.PhoneHomeMetrics.DOCKER;
 import static com.hazelcast.internal.util.phonehome.PhoneHomeMetrics.VIRIDIAN;
@@ -34,12 +33,6 @@ import static com.hazelcast.internal.util.phonehome.PhoneHomeMetrics.VIRIDIAN;
  * Provides information about cloud deployment
  */
 class CloudInfoProvider implements MetricsProvider {
-    static final HazelcastProperty AWS_ENDPOINT = new HazelcastProperty(
-            "hazelcast.phonehome.endpoint.aws", "http://169.254.169.254/latest/meta-data");
-    static final HazelcastProperty AZURE_ENDPOINT = new HazelcastProperty(
-            "hazelcast.phonehome.endpoint.azure", "http://169.254.169.254/metadata/instance/compute?api-version=2018-02-01");
-    static final HazelcastProperty GCP_ENDPOINT = new HazelcastProperty(
-            "hazelcast.phonehome.endpoint.gcp", "http://metadata.google.internal");
     static final HazelcastProperty KUBERNETES_TOKEN_PATH = new HazelcastProperty(
             "hazelcast.phonehome.path.kubernetes.token", "/var/run/secrets/kubernetes.io/serviceaccount/token");
     static final HazelcastProperty DOCKER_FILE_PATH = new HazelcastProperty(
@@ -59,17 +52,7 @@ class CloudInfoProvider implements MetricsProvider {
         HazelcastProperties props = node.getProperties();
         Map<Metric, String> info = new HashMap<>(2);
 
-        if (fetchWebService(props.getString(AWS_ENDPOINT))) {
-            info.put(CLOUD, "A");
-        } else if (fetchWebService(props.getString(AZURE_ENDPOINT))) {
-            info.put(CLOUD, "Z");
-        } else if (fetchWebService(props.getString(GCP_ENDPOINT))) {
-            info.put(CLOUD, "G");
-        } else if (fetchWebService(props.getString(AWS_ENDPOINT), RESPONSE_UNAUTHORIZED)) {
-            info.put(CLOUD, "A");
-        } else {
-            info.put(CLOUD, "N");
-        }
+        info.put(CLOUD, detectCloud(System.getenv()));
 
         try {
             Paths.get(props.getString(DOCKER_FILE_PATH)).toRealPath();
@@ -90,5 +73,31 @@ class CloudInfoProvider implements MetricsProvider {
 
         environmentInfo = info;
         environmentInfo.forEach(context::collect);
+    }
+
+    static String detectCloud(Map<String, String> environment) {
+        if (hasEnvironmentMarker(environment, "AWS_EXECUTION_ENV", "AWS_LAMBDA_FUNCTION_NAME",
+                "ECS_CONTAINER_METADATA_URI", "ECS_CONTAINER_METADATA_URI_V4")) {
+            return "A";
+        }
+        if (hasEnvironmentMarker(environment, "WEBSITE_INSTANCE_ID", "FUNCTIONS_WORKER_RUNTIME",
+                "IDENTITY_ENDPOINT", "MSI_ENDPOINT")) {
+            return "Z";
+        }
+        if (hasEnvironmentMarker(environment, "K_SERVICE", "FUNCTION_TARGET", "GCE_METADATA_HOST",
+                "GOOGLE_CLOUD_PROJECT")) {
+            return "G";
+        }
+        return "N";
+    }
+
+    private static boolean hasEnvironmentMarker(Map<String, String> environment, String... names) {
+        for (String name : names) {
+            String value = environment.get(name);
+            if (value != null && !value.isBlank()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

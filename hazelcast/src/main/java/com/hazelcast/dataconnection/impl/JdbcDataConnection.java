@@ -46,8 +46,8 @@ import static java.util.Locale.ROOT;
 /**
  * {@link DataConnection} implementation for JDBC.
  * <p>
- * Implementation is based on {@link HikariDataSource}. {@link DataConnectionConfig#getProperties()} are passed directly
- * to {@link HikariConfig}. For available options see
+ * Implementation is based on {@link HikariDataSource}. Supported {@link DataConnectionConfig#getProperties()} are
+ * translated to {@link HikariConfig} after the JDBC endpoint policy is applied. For available options see
  * <a href="https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby">HikariCP configuration</a>
  *
  * @since 5.3
@@ -79,13 +79,18 @@ public class JdbcDataConnection extends DataConnectionBase {
 
     protected HikariDataSource createHikariDataSource() {
         try {
-            validate(getConfig());
             Properties properties = getConfig().getProperties();
+            String jdbcUrl = JdbcUrlPolicy.requireAllowed(properties, getName());
+            Properties sanitizedProperties = new Properties();
+            properties.forEach((key, value) -> {
+                if (!JDBC_URL.equals(key)) {
+                    sanitizedProperties.put(key, value);
+                }
+            });
 
             HikariTranslator translator = new HikariTranslator(DATA_SOURCE_COUNTER, getName());
-            Properties translatedProperties = translator.translate(properties);
-
-            HikariConfig dataSourceConfig = new HikariConfig(translatedProperties);
+            HikariConfig dataSourceConfig = translator.translateToConfig(sanitizedProperties);
+            dataSourceConfig.setJdbcUrl(jdbcUrl);
 
             return new HikariDataSource(dataSourceConfig);
         } catch (Exception e) {
@@ -94,26 +99,18 @@ public class JdbcDataConnection extends DataConnectionBase {
     }
 
     private Supplier<Connection> createSingleConnectionSup() {
-        validate(getConfig());
         Properties properties = getConfig().getProperties();
+        String jdbcUrl = JdbcUrlPolicy.requireAllowed(properties, getName());
 
         Properties translatedProperties = translate(properties);
 
         return () -> {
             try {
-                String jdbcUrl = properties.getProperty(JDBC_URL);
                 return DriverManager.getConnection(jdbcUrl, translatedProperties);
             } catch (SQLException e) {
                 throw new HazelcastException("Could not create a new connection: " + e, e);
             }
         };
-    }
-
-    private void validate(DataConnectionConfig config) {
-        Properties properties = config.getProperties();
-        if (properties.get(JDBC_URL) == null) {
-            throw new HazelcastException(JDBC_URL + " property is not defined for data connection '" + getName() + "'");
-        }
     }
 
     @Nonnull
@@ -174,20 +171,13 @@ public class JdbcDataConnection extends DataConnectionBase {
     private Connection pooledConnection() {
         retain();
         try {
-            return new ConnectionDelegate(pooledDataSourceSup.get().getConnection()) {
-                @Override
-                public void close() {
-                    try {
-                        super.close();
-                    } catch (Exception e) {
-                        throw new HazelcastException("Could not close connection", e);
-                    } finally {
-                        release();
-                    }
-                }
-            };
+            return LifecycleManagedConnection.wrap(pooledDataSourceSup.get().getConnection(), this::release);
         } catch (SQLException e) {
+            release();
             throw new HazelcastException("Could not get Connection from pool", e);
+        } catch (RuntimeException | Error e) {
+            release();
+            throw e;
         }
     }
 

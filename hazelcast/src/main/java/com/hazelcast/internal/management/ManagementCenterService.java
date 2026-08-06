@@ -188,6 +188,9 @@ public class ManagementCenterService {
     private void registerExecutor() {
         final ExecutionService executionService = instance.node.nodeEngine.getExecutionService();
         int threadCount = instance.node.getProperties().getInteger(ClusterProperty.MC_EXECUTOR_THREAD_COUNT);
+        if (threadCount <= 0 || threadCount > Integer.MAX_VALUE / EXECUTOR_QUEUE_CAPACITY_PER_THREAD) {
+            throw new IllegalArgumentException("Management Center executor thread count is outside the supported range");
+        }
         logger.finest("Creating new executor for Management Center service tasks with threadCount=%s", threadCount);
         executionService.register(ExecutionService.MC_EXECUTOR,
                 threadCount, threadCount * EXECUTOR_QUEUE_CAPACITY_PER_THREAD,

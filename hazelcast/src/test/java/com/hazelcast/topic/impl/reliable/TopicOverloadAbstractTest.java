@@ -71,7 +71,7 @@ public abstract class TopicOverloadAbstractTest extends HazelcastTestSupport {
 
     @Test
     public void whenError_andNoSpace() {
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             topic.publish("old");
         }
 
@@ -91,7 +91,7 @@ public abstract class TopicOverloadAbstractTest extends HazelcastTestSupport {
 
     @Test
     public void whenDiscardOldest_whenNoSpace() {
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             topic.publish("old");
         }
 
@@ -107,7 +107,7 @@ public abstract class TopicOverloadAbstractTest extends HazelcastTestSupport {
 
     @Test
     public void whenDiscardNewest_whenNoSpace() {
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             topic.publish("old");
         }
 
@@ -123,7 +123,7 @@ public abstract class TopicOverloadAbstractTest extends HazelcastTestSupport {
 
     @Test
     public void whenBlock_whenNoSpace() {
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             topic.publish("old");
         }
 
@@ -234,7 +234,7 @@ public abstract class TopicOverloadAbstractTest extends HazelcastTestSupport {
 
     private void fillTopic() throws ExecutionException, InterruptedException {
         Collection<String> items = new ArrayList<>();
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             items.add("old");
         }
         topic.publishAll(items);

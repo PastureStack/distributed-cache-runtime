@@ -19,7 +19,6 @@ package com.hazelcast.jet.cdc;
 import com.hazelcast.jet.annotation.EvolvingApi;
 
 import javax.annotation.Nullable;
-import java.util.stream.Stream;
 
 /**
  * Describes the nature of a CDC event, mainly the type of action performed
@@ -86,34 +85,17 @@ public enum Operation {
     }
 
     private static class Lookup {
-
-        private static final Operation[] ARRAY;
-
-        static {
-            int maxId = Stream.of(values())
-                    .filter(op -> op.id != null)
-                    .map(op -> (int) op.id)
-                    .max(Integer::compareTo)
-                    .orElse(0);
-
-            ARRAY = new Operation[maxId + 1];
-            Stream.of(values())
-                    .filter(op -> op.id != null)
-                    .forEach(op -> ARRAY[op.id] = op);
-        }
-
         static Operation get(String opcode) {
             if (opcode == null) {
                 return UNSPECIFIED;
             }
-            if (opcode.length() != 1) {
-                return null;
-            }
-            int index = opcode.charAt(0);
-            if (index >= ARRAY.length) {
-                return null;
-            }
-            return ARRAY[index];
+            return switch (opcode) {
+                case "r" -> SYNC;
+                case "c" -> INSERT;
+                case "u" -> UPDATE;
+                case "d" -> DELETE;
+                default -> null;
+            };
         }
 
     }

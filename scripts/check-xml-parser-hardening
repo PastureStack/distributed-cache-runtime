@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$repo_root"
+
+source_file=hazelcast/src/main/java/com/hazelcast/internal/util/XmlUtil.java
+
+for marker in \
+    'dbf.setFeature(FEATURES_DISALLOW_DOCTYPE, true)' \
+    'dbf.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, false)' \
+    'dbf.setFeature(FEATURE_EXTERNAL_PARAMETER_ENTITIES, false)' \
+    'dbf.setFeature(FEATURE_LOAD_EXTERNAL_DTD, false)' \
+    'dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "")' \
+    'dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "")' \
+    'dbf.setXIncludeAware(false)' \
+    'dbf.setExpandEntityReferences(false)'; do
+    grep -Fq "$marker" "$source_file"
+done
+
+if grep -Fq 'setFeature(dbf, FEATURES_DISALLOW_DOCTYPE)' "$source_file"; then
+    echo 'XML_DOCUMENT_BUILDER_LEGACY_DOWNGRADE_PRESENT' >&2
+    exit 1
+fi
+
+command -v javac >/dev/null
+command -v java >/dev/null
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p \
+    "$tmp/src/com/hazelcast/internal/nio" \
+    "$tmp/src/com/hazelcast/internal/util" \
+    "$tmp/src/com/hazelcast/logging" \
+    "$tmp/src/javax/annotation" \
+    "$tmp/classes"
+
+cp "$source_file" "$tmp/src/com/hazelcast/internal/util/XmlUtil.java"
+
+cat > "$tmp/src/com/hazelcast/internal/nio/IOUtil.java" <<'JAVA'
+package com.hazelcast.internal.nio;
+
+import java.io.Closeable;
+import java.io.IOException;
+
+public final class IOUtil {
+    private IOUtil() {
+    }
+
+    public static void closeResource(Closeable closeable) {
+        try {
+            closeable.close();
+        } catch (IOException ignored) {
+            // Test stub: production behavior is not under test here.
+        }
+    }
+}
+JAVA
+
+cat > "$tmp/src/javax/annotation/Nullable.java" <<'JAVA'
+package javax.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
+public @interface Nullable {
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/logging/ILogger.java" <<'JAVA'
+package com.hazelcast.logging;
+
+public interface ILogger {
+    boolean isFinestEnabled();
+    void finest(String message, Object... args);
+    void warning(String message);
+    void warning(Throwable thrown);
+    void severe(String message, Throwable thrown);
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/logging/Logger.java" <<'JAVA'
+package com.hazelcast.logging;
+
+public final class Logger {
+    private static final ILogger NO_OP = new ILogger() {
+        public boolean isFinestEnabled() { return false; }
+        public void finest(String message, Object... args) { }
+        public void warning(String message) { }
+        public void warning(Throwable thrown) { }
+        public void severe(String message, Throwable thrown) { }
+    };
+
+    private Logger() {
+    }
+
+    public static ILogger getLogger(Class<?> type) {
+        return NO_OP;
+    }
+}
+JAVA
+
+cat > "$tmp/src/TestXmlParserHardening.java" <<'JAVA'
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.ByteArrayInputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import com.hazelcast.internal.util.XmlUtil;
+
+public final class TestXmlParserHardening {
+    private TestXmlParserHardening() {
+    }
+
+    public static void main(String[] args) throws Exception {
+        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            server.setSoTimeout(750);
+            AtomicInteger connections = new AtomicInteger();
+            Thread listener = new Thread(() -> acceptOnce(server, connections), "xxe-listener");
+            listener.setDaemon(true);
+            listener.start();
+
+            String xml = "<?xml version=\"1.0\"?><!DOCTYPE test [<!ENTITY xxe SYSTEM \"http://127.0.0.1:"
+                    + server.getLocalPort() + "/secret\">]><test>&xxe;</test>";
+
+            assertBenignDocumentParses();
+            assertExternalEntityRejected(xml);
+
+            System.setProperty(XmlUtil.SYSTEM_PROPERTY_IGNORE_XXE_PROTECTION_FAILURES, "true");
+            assertExternalEntityRejected(xml);
+            System.clearProperty(XmlUtil.SYSTEM_PROPERTY_IGNORE_XXE_PROTECTION_FAILURES);
+
+            listener.join(1000);
+            if (connections.get() != 0) {
+                throw new IllegalStateException("XML parser opened an outbound connection");
+            }
+        }
+
+        System.out.println("DISTRIBUTED_CACHE_XML_HARDENING_OK benign=1 xxe_rejected=2 outbound_connections=0");
+    }
+
+    private static void assertBenignDocumentParses() throws Exception {
+        DocumentBuilderFactory factory = XmlUtil.getNsAwareDocumentBuilderFactory();
+        String root = factory.newDocumentBuilder()
+                .parse(new ByteArrayInputStream("<config/>".getBytes(UTF_8)))
+                .getDocumentElement()
+                .getNodeName();
+        if (!"config".equals(root)) {
+            throw new IllegalStateException("Benign XML changed behavior");
+        }
+    }
+
+    private static void assertExternalEntityRejected(String xml) throws Exception {
+        DocumentBuilderFactory factory = XmlUtil.getNsAwareDocumentBuilderFactory();
+        try {
+            factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml.getBytes(UTF_8)));
+            throw new IllegalStateException("External entity document was accepted");
+        } catch (org.xml.sax.SAXException expected) {
+            // A DOCTYPE must be rejected before entity resolution.
+        }
+    }
+
+    private static void acceptOnce(ServerSocket server, AtomicInteger connections) {
+        try (Socket connection = server.accept()) {
+            if (connection.isConnected()) {
+                connections.incrementAndGet();
+            }
+        } catch (SocketTimeoutException expected) {
+            // No connection is the expected result.
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+JAVA
+
+javac --release 17 -Xlint:all -Werror -d "$tmp/classes" \
+    "$tmp/src/com/hazelcast/internal/nio/IOUtil.java" \
+    "$tmp/src/com/hazelcast/logging/ILogger.java" \
+    "$tmp/src/com/hazelcast/logging/Logger.java" \
+    "$tmp/src/javax/annotation/Nullable.java" \
+    "$tmp/src/com/hazelcast/internal/util/XmlUtil.java" \
+    "$tmp/src/TestXmlParserHardening.java"
+java -cp "$tmp/classes" TestXmlParserHardening

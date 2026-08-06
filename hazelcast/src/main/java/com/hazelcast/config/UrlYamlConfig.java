@@ -16,6 +16,7 @@
 
 package com.hazelcast.config;
 
+import com.hazelcast.internal.config.ConfigLoader;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
@@ -92,7 +93,7 @@ public class UrlYamlConfig extends Config {
         checkTrue(properties != null, "properties can't be null");
 
         LOGGER.info("Configuring Hazelcast from '" + url + "'.");
-        InputStream in = url.openStream();
+        InputStream in = ConfigLoader.openConfig(url);
         new YamlConfigBuilder(in).setProperties(properties).build(this);
     }
 }

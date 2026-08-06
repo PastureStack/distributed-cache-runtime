@@ -18,6 +18,8 @@ package com.hazelcast.jet.impl.deployment;
 
 import childfirstclassloader.TestProcessor;
 import com.hazelcast.client.HazelcastClient;
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.collection.IList;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
@@ -109,7 +111,12 @@ public class ProcessorClassLoaderTest extends JetTestSupport {
         ResourceCollector.items().clear();
 
         member = createHazelcastMember();
-        client = HazelcastClient.newHazelcastClient();
+        Address memberAddress = member.getCluster().getLocalMember().getAddress();
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.setClusterName(member.getConfig().getClusterName());
+        clientConfig.getNetworkConfig().addAddress(memberAddress.getHost() + ':' + memberAddress.getPort());
+        clientConfig.getConnectionStrategyConfig().getConnectionRetryConfig().setClusterConnectTimeoutMillis(30_000);
+        client = HazelcastClient.newHazelcastClient(clientConfig);
         jet = client.getJet();
 
         assertThat(resourcesJarFile).exists().isReadable();

@@ -80,7 +80,7 @@ public class ArrayRingbufferTest {
 
     public static ArrayRingbuffer<String> fullRingbuffer(int capacity) {
         final ArrayRingbuffer<String> rb = new ArrayRingbuffer<>(capacity);
-        for (int i = 0; i < rb.getCapacity(); i++) {
+        for (long i = 0; i < rb.getCapacity(); i++) {
             rb.add("");
         }
         return rb;

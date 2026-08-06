@@ -34,6 +34,7 @@ import java.net.MulticastSocket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static com.hazelcast.internal.util.ExceptionUtil.rethrow;
 
@@ -48,6 +49,8 @@ public class MulticastDiscoveryStrategy extends AbstractDiscoveryStrategy {
     private static final int SOCKET_TIMEOUT = 3000;
     private static final String DEFAULT_MULTICAST_GROUP = "224.2.2.3";
     private static final Boolean DEFAULT_SAFE_SERIALIZATION = Boolean.FALSE;
+    private static final Pattern IPV4_LITERAL = Pattern.compile("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}");
+    private static final Pattern IPV6_LITERAL = Pattern.compile("[0-9A-Fa-f:]+");
 
     private final DiscoveryNode discoveryNode;
     private final ILogger logger;
@@ -67,6 +70,7 @@ public class MulticastDiscoveryStrategy extends AbstractDiscoveryStrategy {
             int port = getOrDefault(MulticastProperties.PORT, DEFAULT_MULTICAST_PORT);
             PortValueValidator.validate(port);
             String group = getOrDefault(MulticastProperties.GROUP, DEFAULT_MULTICAST_GROUP);
+            InetAddress multicastGroup = resolveMulticastGroup(group);
             boolean safeSerialization = getOrDefault(MulticastProperties.SAFE_SERIALIZATION, DEFAULT_SAFE_SERIALIZATION);
             if (!safeSerialization) {
                 String prop = MulticastProperties.SAFE_SERIALIZATION.key();
@@ -91,8 +95,8 @@ public class MulticastDiscoveryStrategy extends AbstractDiscoveryStrategy {
             multicastSocket.setReceiveBufferSize(DATA_OUTPUT_BUFFER_SIZE);
             multicastSocket.setSendBufferSize(DATA_OUTPUT_BUFFER_SIZE);
             multicastSocket.setSoTimeout(SOCKET_TIMEOUT);
-            multicastSocket.joinGroup(InetAddress.getByName(group));
-            multicastDiscoverySender = new MulticastDiscoverySender(discoveryNode, multicastSocket, logger, group, port,
+            multicastSocket.joinGroup(multicastGroup);
+            multicastDiscoverySender = new MulticastDiscoverySender(discoveryNode, multicastSocket, logger, multicastGroup, port,
                     serializationHelper);
             multicastDiscoveryReceiver = new MulticastDiscoveryReceiver(multicastSocket, logger, serializationHelper);
             if (discoveryNode == null) {
@@ -142,6 +146,24 @@ public class MulticastDiscoveryStrategy extends AbstractDiscoveryStrategy {
     @Override
     public PartitionGroupStrategy getPartitionGroupStrategy() {
         return null;
+    }
+
+    static InetAddress resolveMulticastGroup(String group) {
+        if (group == null || group.isBlank()
+                || !(IPV4_LITERAL.matcher(group).matches() || IPV6_LITERAL.matcher(group).matches())) {
+            throw new ValidationException("Multicast group must be a numeric IPv4 or IPv6 address");
+        }
+
+        InetAddress address;
+        try {
+            address = InetAddress.getByName(group);
+        } catch (UnknownHostException e) {
+            throw new ValidationException("Invalid multicast group address", e);
+        }
+        if (!address.isMulticastAddress()) {
+            throw new ValidationException("Configured group is not a multicast address");
+        }
+        return address;
     }
 
     /**

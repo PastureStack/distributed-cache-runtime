@@ -16,6 +16,7 @@
 
 package com.hazelcast.config;
 
+import com.hazelcast.internal.config.ConfigLoader;
 import com.hazelcast.internal.config.ConfigSections;
 import com.hazelcast.internal.config.YamlConfigLocator;
 import com.hazelcast.internal.config.YamlConfigSchemaValidator;
@@ -88,7 +89,7 @@ public class YamlConfigBuilder extends AbstractYamlConfigBuilder implements Conf
      */
     public YamlConfigBuilder(URL url) throws IOException {
         checkNotNull(url, "URL is null!");
-        this.in = url.openStream();
+        this.in = ConfigLoader.openConfig(url);
         this.configurationUrl = url;
     }
 

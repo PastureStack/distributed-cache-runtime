@@ -32,15 +32,15 @@ public class MulticastDiscoverySender implements Runnable {
     private static final int SLEEP_DURATION = 2000;
     private final MulticastSocket multicastSocket;
     private final ILogger logger;
-    private final String group;
+    private final InetAddress group;
     private final int port;
     private final MulticastDiscoverySerializationHelper serializationHelper;
     private MulticastMemberInfo multicastMemberInfo;
     private DatagramPacket datagramPacket;
     private volatile boolean stop;
 
-    public MulticastDiscoverySender(DiscoveryNode discoveryNode, MulticastSocket multicastSocket, ILogger logger, String group,
-            int port, MulticastDiscoverySerializationHelper serializationHelper) throws IOException {
+    public MulticastDiscoverySender(DiscoveryNode discoveryNode, MulticastSocket multicastSocket, ILogger logger,
+            InetAddress group, int port, MulticastDiscoverySerializationHelper serializationHelper) throws IOException {
         this.multicastSocket = multicastSocket;
         this.logger = logger;
         this.group = group;
@@ -55,8 +55,7 @@ public class MulticastDiscoverySender implements Runnable {
 
     private void initDatagramPacket() throws IOException {
         byte[] yourBytes = serializationHelper.serialize(multicastMemberInfo);
-        datagramPacket = new DatagramPacket(yourBytes, yourBytes.length,
-                InetAddress.getByName(group), port);
+        datagramPacket = new DatagramPacket(yourBytes, yourBytes.length, group, port);
     }
 
     @Override

@@ -18,10 +18,6 @@ package com.hazelcast.internal.util.phonehome;
 
 import com.hazelcast.instance.impl.Node;
 
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-
 /**
  * Interface to be implemented by the classes that expose {@linkplain PhoneHomeMetrics
  * phone home data}. The {@link #provideMetrics(Node, MetricsCollectionContext)}
@@ -33,9 +29,6 @@ import java.net.URL;
 public interface MetricsProvider {
 
     int TIMEOUT = 2000;
-    int RESPONSE_OK = HttpURLConnection.HTTP_OK;
-    int RESPONSE_UNAUTHORIZED = HttpURLConnection.HTTP_UNAUTHORIZED;
-
     int A_INTERVAL = 5;
     int B_INTERVAL = 10;
     int C_INTERVAL = 20;
@@ -82,25 +75,4 @@ public interface MetricsProvider {
         return letter;
     }
 
-    static boolean fetchWebService(String urlStr, int responseCode) {
-        HttpURLConnection conn = null;
-        try {
-            URL url = URI.create(urlStr).toURL();
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(TIMEOUT);
-            conn.setReadTimeout(TIMEOUT);
-            conn.connect();
-            return conn.getResponseCode() == responseCode;
-        } catch (Exception ignored) {
-            return false;
-        } finally {
-            if (conn != null) {
-                conn.disconnect();
-            }
-        }
-    }
-
-    static boolean fetchWebService(String url) {
-        return fetchWebService(url, RESPONSE_OK);
-    }
 }

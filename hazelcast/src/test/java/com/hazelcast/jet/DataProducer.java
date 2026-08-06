@@ -21,6 +21,7 @@ import javax.annotation.Nonnull;
 import java.lang.ref.Cleaner;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,7 +29,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 /**
  * Simple utility that produces some data in background thread and returns how many items were produced.
@@ -50,13 +50,16 @@ public class DataProducer {
     private int delay = 40;
     private TimeUnit timeUnit = TimeUnit.MILLISECONDS;
 
-    private final Function<Integer, String> sqlProducer;
+    private final String sql;
+    private final StatementBinder statementBinder;
 
     private volatile boolean running;
 
-    public DataProducer(@Nonnull String jdbcUrl, @Nonnull Function<Integer, String> sqlProducer) {
+    public DataProducer(@Nonnull String jdbcUrl, @Nonnull String sql,
+                        @Nonnull StatementBinder statementBinder) {
         this.jdbcUrl = jdbcUrl;
-        this.sqlProducer = sqlProducer;
+        this.sql = sql;
+        this.statementBinder = statementBinder;
     }
 
     public DataProducer setDelays(int initialDelay, int delay, TimeUnit timeUnit) {
@@ -74,10 +77,11 @@ public class DataProducer {
                 try {
                     makeSureConnectionUp();
                     int id = nextId.getAndIncrement();
-                    int updated = connection
-                            .prepareStatement(sqlProducer.apply(id))
-                            .executeUpdate();
-                    assert updated == 1;
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statementBinder.bind(statement, id);
+                        int updated = statement.executeUpdate();
+                        assert updated == 1;
+                    }
                     producedItems.incrementAndGet();
                     connection.commit();
                 } catch (Throwable t) {
@@ -130,5 +134,10 @@ public class DataProducer {
 
     private static RunnableEx unchecked(RunnableEx function) {
         return function;
+    }
+
+    @FunctionalInterface
+    public interface StatementBinder {
+        void bind(PreparedStatement statement, int id) throws SQLException;
     }
 }

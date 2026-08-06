@@ -47,4 +47,23 @@ public class IntervalFunctionTest {
         assertEquals(8000L, fun.waitAfterAttempt(4));
     }
 
+    @Test
+    public void exponentialBackoffSaturatesInsteadOfOverflowing() {
+        IntervalFunction fun = IntervalFunction.exponentialBackoff(Long.MAX_VALUE / 2, 4.0);
+        assertEquals(1L << 62, fun.waitAfterAttempt(1));
+        assertEquals(Long.MAX_VALUE, fun.waitAfterAttempt(2));
+        assertEquals(Long.MAX_VALUE, fun.waitAfterAttempt(Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void cappedExponentialBackoffUsesTheCapForExtremeAttempts() {
+        IntervalFunction fun = IntervalFunction.exponentialBackoffWithCap(1000L, 2.0, 30_000L);
+        assertEquals(30_000L, fun.waitAfterAttempt(Integer.MAX_VALUE));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void nonFiniteMultiplierIsRejected() {
+        IntervalFunction.exponentialBackoff(1000L, Double.POSITIVE_INFINITY);
+    }
+
 }

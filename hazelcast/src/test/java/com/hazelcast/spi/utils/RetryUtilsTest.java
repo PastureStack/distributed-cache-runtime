@@ -101,4 +101,16 @@ public class RetryUtilsTest {
         // then
         // throws exception
     }
+
+    @Test
+    public void backoffRetainsTheExistingSequence() {
+        assertEquals(1500L, RetryUtils.backoffIntervalForRetry(1));
+        assertEquals(2250L, RetryUtils.backoffIntervalForRetry(2));
+        assertEquals(3375L, RetryUtils.backoffIntervalForRetry(3));
+    }
+
+    @Test
+    public void backoffSaturatesWithoutOverflow() {
+        assertEquals(300_000L, RetryUtils.backoffIntervalForRetry(Integer.MAX_VALUE));
+    }
 }

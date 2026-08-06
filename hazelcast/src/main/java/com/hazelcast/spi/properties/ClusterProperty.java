@@ -1637,11 +1637,11 @@ public final class ClusterProperty {
             = new HazelcastProperty("hazelcast.event.sync.timeout.millis", 5000, MILLISECONDS);
 
     /**
-     * Enable or disable the sending of phone home data to Hazelcast’s phone home
-     * server.
+     * Enable or disable the sending of phone home data. It is disabled by default
+     * and must be explicitly enabled by an operator.
      */
     public static final HazelcastProperty PHONE_HOME_ENABLED
-            = new HazelcastProperty("hazelcast.phone.home.enabled", true);
+            = new HazelcastProperty("hazelcast.phone.home.enabled", false);
 
     /**
      * Enable Hazelcast shutdownhook thread. When this is enabled, this thread

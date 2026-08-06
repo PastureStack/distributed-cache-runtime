@@ -29,7 +29,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathException;
 import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +37,8 @@ import java.util.Base64;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Properties;
+
+import static com.hazelcast.internal.util.SecureFileAccess.newInputStream;
 
 import static com.hazelcast.internal.config.DomConfigHelper.childElements;
 import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
@@ -103,7 +105,7 @@ public class EncryptionReplacer extends AbstractPbeReplacer {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             if (passwordFile != null) {
-                try (FileInputStream fis = new FileInputStream(passwordFile)) {
+                try (InputStream fis = newInputStream(passwordFile, "encryption password file")) {
                     fis.transferTo(baos);
                 }
             }
@@ -165,14 +167,14 @@ public class EncryptionReplacer extends AbstractPbeReplacer {
         EncryptionReplacer replacer = new EncryptionReplacer();
         String xmlPath = System.getProperty("hazelcast.config");
         Properties properties = xmlPath == null ? System.getProperties()
-                : loadPropertiesFromConfig(new FileInputStream(xmlPath));
+                : loadPropertiesFromConfig(newInputStream(xmlPath, "encryption configuration file"));
         replacer.init(properties);
         String encrypted = replacer.encrypt(args[0], iterations);
         String variable = "$" + replacer.getPrefix() + "{" + encrypted + "}";
         return variable;
     }
 
-    private static Properties loadPropertiesFromConfig(FileInputStream fileInputStream) throws Exception {
+    private static Properties loadPropertiesFromConfig(InputStream fileInputStream) throws Exception {
         try {
             DocumentBuilder builder = getNsAwareDocumentBuilderFactory().newDocumentBuilder();
             Document doc = builder.parse(fileInputStream);

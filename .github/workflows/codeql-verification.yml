@@ -1,0 +1,166 @@
+name: CodeQL verification
+
+on:
+  push:
+    branches:
+      - 'verification/distributed-cache-runtime-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distributed-cache-codeql-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install verified Temurin LTS JDK
+        shell: bash
+        env:
+          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4%2B7/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4_7.tar.gz
+          JDK_SHA256: e58fcdcd637b25c03ca84cbbcefc70d11efb8f4b4cbd05decc9f661769d77f94
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/temurin-jdk.tar.gz"
+          java_home="$RUNNER_TEMP/temurin-jdk"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+            --output "$archive" "$JDK_URL"
+          printf '%s  %s\n' "$JDK_SHA256" "$archive" | sha256sum -c -
+          mkdir -p "$java_home"
+          tar -xzf "$archive" -C "$java_home" --strip-components=1
+          printf 'JAVA_HOME=%s\n' "$java_home" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$java_home" >> "$GITHUB_PATH"
+          "$java_home/bin/java" -version
+
+      - name: Verify source and wrapper integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test "$(git rev-list --count 60c31e3750cbad64f5720e2e02f0a9830973193c..HEAD)" -eq 1
+          grep -Fxq 'distributionSha256Sum=55fadd669532a3205d5db95f490bf13971d8b0843526f407f29db0e61f074ab3' \
+            .mvn/wrapper/maven-wrapper.properties
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          config: |
+            queries:
+              - uses: security-extended
+            threat-models: local
+
+      - name: Build complete affected module graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./mvnw -B \
+            -pl hazelcast,hazelcast-build-utils,hazelcast-sql,extensions/cdc-debezium \
+            -am \
+            -DskipTests \
+            -Dcheckstyle.skip=true \
+            -Dlicense.skip=true \
+            -Dmaven.compiler.fork=false \
+            -Dkotlin.compiler.daemon=false \
+            -Dassembly.skipAssembly=true \
+            test-compile
+
+      - name: Analyze without publishing temporary alerts
+        uses: github/codeql-action/analyze@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef
+        with:
+          category: '/language:java-kotlin'
+          upload: never
+          output: codeql-results
+
+      - name: Reject Critical and High findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import glob
+          import json
+
+          blocked = []
+          unresolved = []
+          total = 0
+          for path in glob.glob('codeql-results/**/*.sarif', recursive=True):
+              with open(path, encoding='utf-8') as stream:
+                  sarif = json.load(stream)
+              for run in sarif.get('runs', []):
+                  driver_rules = {
+                      rule.get('id'): rule
+                      for rule in run.get('tool', {}).get('driver', {}).get('rules', [])
+                  }
+                  extension_rules = [
+                      {
+                          rule.get('id'): rule
+                          for rule in extension.get('rules', [])
+                      }
+                      for extension in run.get('tool', {}).get('extensions', [])
+                  ]
+                  for result in run.get('results', []):
+                      total += 1
+                      rule_id = result.get('ruleId')
+                      rule = None
+                      component_index = (
+                          result.get('rule', {})
+                          .get('toolComponent', {})
+                          .get('index')
+                      )
+                      if component_index is not None and component_index < len(extension_rules):
+                          rule = extension_rules[component_index].get(rule_id)
+                      if rule is None:
+                          rule = driver_rules.get(rule_id)
+                      if rule is None:
+                          rule = next(
+                              (rules.get(rule_id) for rules in extension_rules if rule_id in rules),
+                              None,
+                          )
+                      if rule is None:
+                          unresolved.append((rule_id, 'missing rule metadata'))
+                          continue
+                      try:
+                          score = float(rule.get('properties', {}).get('security-severity', '0'))
+                      except (TypeError, ValueError):
+                          unresolved.append((rule_id, 'invalid security severity'))
+                          continue
+                      if score >= 7.0:
+                          location = result.get('locations', [{}])[0].get('physicalLocation', {})
+                          blocked.append((
+                              rule_id,
+                              score,
+                              location.get('artifactLocation', {}).get('uri', 'unknown'),
+                              location.get('region', {}).get('startLine', 0),
+                          ))
+          print(f'codeql_total={total}')
+          print(f'codeql_critical_high={len(blocked)}')
+          print(f'codeql_unresolved_rule_metadata={len(unresolved)}')
+          for rule_id, score, path, line in blocked:
+              print(f'{rule_id}\t{score}\t{path}:{line}')
+          for rule_id, reason in unresolved:
+              print(f'{rule_id}\t{reason}')
+          if blocked or unresolved:
+              raise SystemExit(1)
+          PY
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: distributed-cache-codeql-${{ github.sha }}
+          path: codeql-results/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+          include-hidden-files: false

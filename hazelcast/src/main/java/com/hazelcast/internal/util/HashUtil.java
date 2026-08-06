@@ -307,7 +307,8 @@ public final class HashUtil {
     public static int fastIntMix(int k) {
         // phi = 2^32 / goldenRatio
         final int phi = 0x9E3779B9;
-        final int h = k * phi;
+        // The low 32 bits of the exact product preserve Java's documented modular int hash behavior.
+        final int h = (int) Math.multiplyFull(k, phi);
         return h ^ (h >>> 16);
     }
 

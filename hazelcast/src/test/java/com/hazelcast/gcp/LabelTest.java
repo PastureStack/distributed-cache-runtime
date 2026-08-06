@@ -58,4 +58,18 @@ public class LabelTest {
         // then
         // throw exception
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void labelWithMultipleSeparatorsIsRejected() {
+        new Label("key=value=unexpected");
+    }
+
+    @Test
+    public void longWhitespaceIsParsedWithoutRegexBacktracking() {
+        String whitespace = " ".repeat(50_000);
+        Label result = new Label(whitespace + "key" + whitespace + "=" + whitespace + "value" + whitespace);
+
+        assertEquals("key", result.getKey());
+        assertEquals("value", result.getValue());
+    }
 }

@@ -16,10 +16,9 @@
 
 package com.hazelcast.gcp;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import static java.util.Arrays.asList;
 
 /**
  * Utility methods.
@@ -32,11 +31,26 @@ final class Utils {
         if (string == null) {
             return Collections.emptyList();
         }
-        return asList(string.trim().split("\\s*,\\s*"));
+        String trimmed = string.trim();
+        List<String> parts = new ArrayList<>();
+        int partStart = 0;
+        int separatorIndex;
+        while ((separatorIndex = trimmed.indexOf(',', partStart)) >= 0) {
+            parts.add(trimmed.substring(partStart, separatorIndex).trim());
+            partStart = separatorIndex + 1;
+        }
+        parts.add(trimmed.substring(partStart).trim());
+        while (parts.size() > 1 && parts.get(parts.size() - 1).isEmpty()) {
+            parts.remove(parts.size() - 1);
+        }
+        return parts;
     }
 
     static String lastPartOf(String string, String separator) {
-        String[] parts = string.split(separator);
-        return parts[parts.length - 1];
+        if (separator.isEmpty()) {
+            return "";
+        }
+        int separatorIndex = string.lastIndexOf(separator);
+        return separatorIndex < 0 ? string : string.substring(separatorIndex + separator.length());
     }
 }

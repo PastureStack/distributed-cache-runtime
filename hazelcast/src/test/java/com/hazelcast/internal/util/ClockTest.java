@@ -24,6 +24,7 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import static java.lang.String.format;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(HazelcastSerialClassRunner.class)
@@ -86,5 +87,14 @@ public class ClockTest extends AbstractClockTest {
         long offsetMillis = clock.currentTimeMillis();
         assertTrue(format("SystemOffsetClock should be far behind the normal clock! %d < %d", offsetMillis, systemMillis),
                 offsetMillis < systemMillis);
+    }
+
+    @Test
+    public void systemOffsetClockSaturatesAtLongBounds() {
+        Clock.SystemOffsetClock positive = new Clock.SystemOffsetClock(Long.MAX_VALUE);
+        Clock.SystemOffsetClock negative = new Clock.SystemOffsetClock(Long.MIN_VALUE);
+
+        assertEquals(Long.MAX_VALUE, positive.currentTimeMillis());
+        assertEquals(Long.MAX_VALUE, negative.toSystemCurrentTimeMillis(1));
     }
 }

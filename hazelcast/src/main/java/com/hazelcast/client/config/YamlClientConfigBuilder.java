@@ -54,7 +54,7 @@ public class YamlClientConfigBuilder extends AbstractYamlConfigBuilder {
     public YamlClientConfigBuilder(String resource) throws IOException {
         URL url = ConfigLoader.locateConfig(resource);
         checkTrue(url != null, "Could not load " + resource);
-        this.in = url.openStream();
+        this.in = ConfigLoader.openConfig(url);
     }
 
     public YamlClientConfigBuilder(File file) throws IOException {
@@ -64,7 +64,7 @@ public class YamlClientConfigBuilder extends AbstractYamlConfigBuilder {
 
     public YamlClientConfigBuilder(URL url) throws IOException {
         checkNotNull(url, "URL is null!");
-        this.in = url.openStream();
+        this.in = ConfigLoader.openConfig(url);
     }
 
     public YamlClientConfigBuilder(InputStream in) {

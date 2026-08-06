@@ -82,7 +82,7 @@ public class HibernateIT extends HazelcastTestSupport {
         Session session = sessionFactory.openSession();
         Transaction tx = session.beginTransaction();
         AnnotatedEntity e = new AnnotatedEntity("some-title");
-        session.save(e);
+        session.persist(e);
         tx.commit();
         session.close();
 

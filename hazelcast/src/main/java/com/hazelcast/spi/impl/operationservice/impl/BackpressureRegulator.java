@@ -138,7 +138,11 @@ class BackpressureRegulator {
                     + "' with a value smaller than 1");
         }
 
-        return (partitionCount + 1) * invocationsPerPartition;
+        if (partitionCount < 0 || partitionCount >= Integer.MAX_VALUE
+                || invocationsPerPartition > Integer.MAX_VALUE / (partitionCount + 1)) {
+            throw new IllegalArgumentException("Back-pressure invocation limit exceeds the supported range");
+        }
+        return Math.multiplyExact(partitionCount + 1, invocationsPerPartition);
     }
 
     /**

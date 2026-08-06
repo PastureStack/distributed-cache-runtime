@@ -52,7 +52,7 @@ public class CardinalityEstimatorStressTest extends HazelcastTestSupport {
         long acceptableDelta = (long) (2 * sigma * expected);
 
         int loggingFrequency = 100 * 1000;
-        for (int i = 0; i < expected; i++) {
+        for (long i = 0; i < expected; i++) {
             if (i % loggingFrequency == 0) {
                 System.out.println("At " + i);
             }

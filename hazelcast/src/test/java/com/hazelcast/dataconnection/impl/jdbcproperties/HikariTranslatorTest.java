@@ -56,7 +56,9 @@ public class HikariTranslatorTest {
         Properties hikariProperties = hikariTranslator.translate(hzProperties);
         HikariConfig hikariConfig = new HikariConfig(hikariProperties);
 
-        assertThat(hikariConfig.getJdbcUrl()).isEqualTo(jdbcUrl);
+        assertThat(hikariProperties)
+                .doesNotContainKeys("jdbcUrl", "dataSource.jdbcUrl");
+        assertThat(hikariConfig.getJdbcUrl()).isNull();
         assertThat(hikariConfig.getConnectionTimeout()).isEqualTo(Long.parseLong(connectionTimeout));
         assertThat(hikariConfig.getIdleTimeout()).isEqualTo(Long.parseLong(idleTimeout));
         assertThat(hikariConfig.getKeepaliveTime()).isEqualTo(Long.parseLong(keepAliveTime));
@@ -78,6 +80,34 @@ public class HikariTranslatorTest {
         HikariConfig hikariConfig = new HikariConfig(hikariProperties);
 
         assertThat(hikariConfig.getConnectionInitSql()).isEqualTo(connectionInitSql);
+    }
+
+    @Test
+    public void rejectsUnrecognizedHikariPropertyInsteadOfCreatingAnEndpointCapableConfigurationKey() {
+        Properties hzProperties = new Properties();
+        hzProperties.put("hikari.arbitraryUrl", "http://169.254.169.254/latest/meta-data");
+
+        Properties hikariProperties = hikariTranslator.translate(hzProperties);
+
+        assertThat(hikariProperties)
+                .doesNotContainKeys("arbitraryUrl", "dataSource.arbitraryUrl");
+    }
+
+    @Test
+    public void translatesToConfigWithoutGenericPropertiesConstructor() {
+        Properties hzProperties = new Properties();
+        hzProperties.put(DataConnectionProperties.CONNECTION_TIMEOUT, "5000");
+        hzProperties.put(DataConnectionProperties.MAXIMUM_POOL_SIZE, "7");
+        hzProperties.put("hikari.connectionInitSql", "SELECT 1");
+        hzProperties.put("user", "application");
+
+        HikariConfig config = hikariTranslator.translateToConfig(hzProperties);
+
+        assertThat(config.getConnectionTimeout()).isEqualTo(5000);
+        assertThat(config.getMaximumPoolSize()).isEqualTo(7);
+        assertThat(config.getConnectionInitSql()).isEqualTo("SELECT 1");
+        assertThat(config.getDataSourceProperties()).containsEntry("user", "application");
+        assertThat(config.getJdbcUrl()).isNull();
     }
 
     @Test

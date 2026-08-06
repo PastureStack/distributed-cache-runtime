@@ -38,6 +38,7 @@ import static com.hazelcast.kubernetes.KubernetesConfig.DiscoveryMode;
 import static com.hazelcast.kubernetes.KubernetesProperties.KUBERNETES_API_RETIRES;
 import static com.hazelcast.kubernetes.KubernetesProperties.KUBERNETES_API_TOKEN;
 import static com.hazelcast.kubernetes.KubernetesProperties.KUBERNETES_CA_CERTIFICATE;
+import static com.hazelcast.kubernetes.KubernetesProperties.KUBERNETES_MASTER_URL;
 import static com.hazelcast.kubernetes.KubernetesProperties.NAMESPACE;
 import static com.hazelcast.kubernetes.KubernetesProperties.POD_LABEL_NAME;
 import static com.hazelcast.kubernetes.KubernetesProperties.POD_LABEL_VALUE;
@@ -123,6 +124,15 @@ public class KubernetesConfigTest {
         assertEquals(TEST_API_TOKEN, config.getTokenProvider().getToken());
         assertEquals(TEST_CA_CERTIFICATE, config.getKubernetesCaCertificate());
         assertEquals(ExposeExternallyMode.AUTO, config.getExposeExternallyMode());
+        assertEquals("https://kubernetes.default.svc:443", config.getKubernetesMasterUrl());
+    }
+
+    @Test(expected = InvalidConfigurationException.class)
+    public void kubernetesApiModeRejectsUntrustedMasterOrigin() {
+        Map<String, Comparable> properties = createProperties();
+        properties.put(KUBERNETES_MASTER_URL.key(), "http://127.0.0.1:8080");
+
+        new KubernetesConfig(properties);
     }
 
     @Test

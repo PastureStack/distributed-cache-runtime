@@ -97,7 +97,10 @@ public class QueryParser {
 
     private static String trimMessage(String message) {
         String eol = System.getProperty("line.separator", "\n");
-        String[] parts = message.split(eol, 2);
-        return parts[0];
+        if (message == null || eol.isEmpty()) {
+            return message;
+        }
+        int eolIndex = message.indexOf(eol);
+        return eolIndex < 0 ? message : message.substring(0, eolIndex);
     }
 }

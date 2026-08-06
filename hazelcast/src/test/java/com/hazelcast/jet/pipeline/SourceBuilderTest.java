@@ -508,8 +508,8 @@ public class SourceBuilderTest extends PipelineStreamTestSupport {
         SourceBuilder<NumberGeneratorContext>.TimestampedStream<Integer> builder = SourceBuilder
                 .timestampedStream("src", ctx -> new NumberGeneratorContext())
                 .fillBufferFn((src, buffer) -> {
-                    long expectedCount = NANOSECONDS.toMillis(System.nanoTime() - src.startTime);
-                    expectedCount = Math.min(expectedCount, src.current + 100);
+                    long elapsedCount = NANOSECONDS.toMillis(System.nanoTime() - src.startTime);
+                    int expectedCount = (int) Math.min(elapsedCount, (long) src.current + 100L);
                     while (src.current < expectedCount) {
                         buffer.add(src.current, src.current);
                         src.current++;

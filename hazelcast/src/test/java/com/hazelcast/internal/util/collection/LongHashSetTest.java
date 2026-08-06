@@ -259,6 +259,16 @@ public class LongHashSetTest {
     }
 
     @Test
+    public void hashCodeUsesTheFullLongValue() {
+        long value = 1L << 32;
+        set.add(value);
+        Set<Long> reference = new HashSet<>();
+        reference.add(value);
+
+        assertEquals(reference.hashCode(), set.hashCode());
+    }
+
+    @Test
     public void worksCorrectlyWhenFull() {
         final LongHashSet set = new LongHashSet(2, 0);
         set.add(1);

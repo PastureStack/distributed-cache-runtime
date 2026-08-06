@@ -17,8 +17,7 @@
 package com.hazelcast.buildutils;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,31 +25,33 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.hazelcast.internal.util.SecureFileAccess.newInputStream;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class ExportPackageViewer {
 
     public static void main(String[] args) throws Exception {
         String sourceFile = args[0];
-        File file = new File(sourceFile);
-        FileReader fileReader = new FileReader(file);
+        try (BufferedReader reader = new LineNumberReader(
+                new InputStreamReader(newInputStream(sourceFile, "export package source"), UTF_8))) {
+            String data = reader.readLine();
 
-        BufferedReader reader = new LineNumberReader(fileReader);
-        String data = reader.readLine();
-
-        List<String> strings = ElementParser.parseDelimitedString(data, ',');
-        Set<String> packages = new HashSet<>();
-        for (String entry : strings) {
-            int usesIndex = entry.indexOf(";");
-            if (usesIndex != -1) {
-                entry = entry.substring(0, usesIndex);
+            List<String> strings = ElementParser.parseDelimitedString(data, ',');
+            Set<String> packages = new HashSet<>();
+            for (String entry : strings) {
+                int usesIndex = entry.indexOf(";");
+                if (usesIndex != -1) {
+                    entry = entry.substring(0, usesIndex);
+                }
+                packages.add(entry);
             }
-            packages.add(entry);
-        }
 
-        List<String> result = new ArrayList<>(packages);
-        Collections.sort(result);
+            List<String> result = new ArrayList<>(packages);
+            Collections.sort(result);
 
-        for (String p : result) {
-            System.out.println(p);
+            for (String p : result) {
+                System.out.println(p);
+            }
         }
     }
 }

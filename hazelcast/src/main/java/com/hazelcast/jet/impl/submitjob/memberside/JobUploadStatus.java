@@ -26,8 +26,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
@@ -35,6 +33,9 @@ import java.time.Instant;
 import java.util.Objects;
 
 import static com.hazelcast.internal.util.Sha256Util.calculateSha256Hex;
+import static com.hazelcast.internal.util.SecureFileAccess.createTempFile;
+import static com.hazelcast.internal.util.SecureFileAccess.newAppendingOutputStream;
+import static com.hazelcast.internal.util.SecureFileAccess.requireSafeFileName;
 
 /**
  * Used by the member side to hold the details of a job that is being uploaded
@@ -139,7 +140,7 @@ public class JobUploadStatus {
         Path jarPath = jobMetaDataParameterObject.getJarPath();
 
         // Append data to file
-        try (OutputStream outputStream = Files.newOutputStream(jarPath, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+        try (OutputStream outputStream = newAppendingOutputStream(jarPath, "job upload file")) {
             outputStream.write(parameterObject.getPartData(), 0, parameterObject.getPartSize());
         }
 
@@ -182,16 +183,16 @@ public class JobUploadStatus {
         jobMetaDataParameterObject.setJarPath(jarPath);
     }
 
-    @SuppressWarnings("java:S5443")
     Path createJarPath() throws IOException {
         Path jarPath;
+        String safePrefix = requireSafeFileName(jobMetaDataParameterObject.getFileName(), "job upload file name");
         if (jobMetaDataParameterObject.getUploadDirectoryPath() != null) {
-            Path path = Paths.get(jobMetaDataParameterObject.getUploadDirectoryPath());
             // Create a new temporary file in the given directory
-            jarPath = Files.createTempFile(path, jobMetaDataParameterObject.getFileName(), ".jar");
+            jarPath = createTempFile(jobMetaDataParameterObject.getUploadDirectoryPath(),
+                    safePrefix, ".jar", "job upload");
         } else {
             // Create a new temporary file in the default temporary file directory
-            jarPath = Files.createTempFile(jobMetaDataParameterObject.getFileName(), ".jar");
+            jarPath = createTempFile(System.getProperty("java.io.tmpdir"), safePrefix, ".jar", "job upload");
         }
         return jarPath;
     }

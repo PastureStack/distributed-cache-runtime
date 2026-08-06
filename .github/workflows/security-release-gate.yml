@@ -1,0 +1,418 @@
+name: Security release gate
+
+on:
+  push:
+    branches:
+      - 'verification/distributed-cache-runtime-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distributed-cache-security-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-build-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      TRIVY_IMAGE: aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install verified Temurin LTS JDK
+        shell: bash
+        env:
+          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4%2B7/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4_7.tar.gz
+          JDK_SHA256: e58fcdcd637b25c03ca84cbbcefc70d11efb8f4b4cbd05decc9f661769d77f94
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/temurin-jdk.tar.gz"
+          java_home="$RUNNER_TEMP/temurin-jdk"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+            --output "$archive" "$JDK_URL"
+          printf '%s  %s\n' "$JDK_SHA256" "$archive" | sha256sum -c -
+          mkdir -p "$java_home"
+          tar -xzf "$archive" -C "$java_home" --strip-components=1
+          printf 'JAVA_HOME=%s\n' "$java_home" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$java_home" >> "$GITHUB_PATH"
+          "$java_home/bin/java" -version
+
+      - name: Verify candidate identity and supply-chain pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test "$(git rev-list --count 60c31e3750cbad64f5720e2e02f0a9830973193c..HEAD)" -eq 1
+          test "$(git rev-parse 60c31e3750cbad64f5720e2e02f0a9830973193c^{commit})" = \
+            60c31e3750cbad64f5720e2e02f0a9830973193c
+          grep -Fxq 'distributionSha256Sum=55fadd669532a3205d5db95f490bf13971d8b0843526f407f29db0e61f074ab3' \
+            .mvn/wrapper/maven-wrapper.properties
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/source-revision.txt
+          sha256sum .mvn/wrapper/maven-wrapper.properties > evidence/source-locks.sha256
+
+      - name: Run focused legitimate and malicious regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          core_tests='com.hazelcast.aws.AwsMetadataApiTest,com.hazelcast.azure.TagTest,com.hazelcast.config.XmlSchemaSourceSecurityTest,com.hazelcast.console.ConsoleAppTest,com.hazelcast.core.server.HazelcastMemberStarterTest,com.hazelcast.dataconnection.impl.JdbcDataConnectionTest,com.hazelcast.dataconnection.impl.JdbcUrlPolicyTest,com.hazelcast.dataconnection.impl.hazelcastdataconnection.HazelcastDataConnectionConfigLoaderTest,com.hazelcast.dataconnection.impl.jdbcproperties.HikariTranslatorTest,com.hazelcast.flakeidgen.impl.FlakeIdGeneratorProxyTest,com.hazelcast.gcp.LabelTest,com.hazelcast.gcp.UtilsTest,com.hazelcast.internal.config.ConfigLoaderSecurityTest,com.hazelcast.internal.diagnostics.DiagnosticsLogFileTest,com.hazelcast.internal.serialization.impl.ByteArrayObjectDataIntegrationTest,com.hazelcast.internal.serialization.impl.ObjectDataInputStreamIntegrationTest,com.hazelcast.internal.serialization.impl.UnsafeObjectDataInputIntegrationTest,com.hazelcast.internal.util.ClockTest,com.hazelcast.internal.util.HashUtilTest,com.hazelcast.internal.util.SecureFileAccessTest,com.hazelcast.internal.util.collection.LongHashSetTest,com.hazelcast.internal.util.concurrent.BackoffIdleStrategyTest,com.hazelcast.internal.util.phonehome.PhoneHomeDifferentConfigTest,com.hazelcast.internal.util.phonehome.PhoneHomeIntegrationTest,com.hazelcast.internal.util.XmlUtilTest,com.hazelcast.jet.impl.submitjob.memberside.JobUploadStatusTest,com.hazelcast.jet.impl.submitjob.memberside.validator.JarOnClientValidatorTest,com.hazelcast.jet.retry.impl.IntervalFunctionTest,com.hazelcast.kubernetes.KubernetesApiOriginPolicyTest,com.hazelcast.kubernetes.KubernetesConfigTest,com.hazelcast.spi.discovery.multicast.MulticastDiscoveryStrategyTest,com.hazelcast.spi.utils.RestClientTest,com.hazelcast.spi.utils.RetryUtilsTest'
+          all_tests="$core_tests,com.hazelcast.jet.sql.impl.parse.QueryParserTest,com.hazelcast.buildutils.ExportPackageViewerTest,com.hazelcast.jet.cdc.OperationTest"
+          timeout --signal=TERM --kill-after=30s 30m ./mvnw -B \
+            -pl hazelcast,hazelcast-sql,hazelcast-build-utils,extensions/cdc-debezium \
+            -am \
+            -Dcheckstyle.skip=true \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dtest="$all_tests" \
+            test
+          timeout --signal=TERM --kill-after=30s 10m ./mvnw -B \
+            -pl hazelcast -am \
+            -Dcheckstyle.skip=true \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dtest=com.hazelcast.query.impl.TypeConverterTest \
+            test
+          timeout --signal=TERM --kill-after=30s 15m ./mvnw -B \
+            -pl hazelcast -am \
+            -Dcheckstyle.skip=true \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Dtest=com.hazelcast.jet.impl.deployment.ProcessorClassLoaderTest \
+            test
+          scripts/check-xml-parser-hardening
+          scripts/check-numeric-conversion-hardening
+
+      - name: Verify every required test suite was discovered
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          core = '''
+          com.hazelcast.aws.AwsMetadataApiTest
+          com.hazelcast.azure.TagTest
+          com.hazelcast.config.XmlSchemaSourceSecurityTest
+          com.hazelcast.console.ConsoleAppTest
+          com.hazelcast.core.server.HazelcastMemberStarterTest
+          com.hazelcast.dataconnection.impl.JdbcDataConnectionTest
+          com.hazelcast.dataconnection.impl.JdbcUrlPolicyTest
+          com.hazelcast.dataconnection.impl.hazelcastdataconnection.HazelcastDataConnectionConfigLoaderTest
+          com.hazelcast.dataconnection.impl.jdbcproperties.HikariTranslatorTest
+          com.hazelcast.flakeidgen.impl.FlakeIdGeneratorProxyTest
+          com.hazelcast.gcp.LabelTest
+          com.hazelcast.gcp.UtilsTest
+          com.hazelcast.internal.config.ConfigLoaderSecurityTest
+          com.hazelcast.internal.diagnostics.DiagnosticsLogFileTest
+          com.hazelcast.internal.serialization.impl.ByteArrayObjectDataIntegrationTest
+          com.hazelcast.internal.serialization.impl.ObjectDataInputStreamIntegrationTest
+          com.hazelcast.internal.serialization.impl.UnsafeObjectDataInputIntegrationTest
+          com.hazelcast.internal.util.ClockTest
+          com.hazelcast.internal.util.HashUtilTest
+          com.hazelcast.internal.util.SecureFileAccessTest
+          com.hazelcast.internal.util.collection.LongHashSetTest
+          com.hazelcast.internal.util.concurrent.BackoffIdleStrategyTest
+          com.hazelcast.internal.util.phonehome.PhoneHomeDifferentConfigTest
+          com.hazelcast.internal.util.phonehome.PhoneHomeIntegrationTest
+          com.hazelcast.internal.util.XmlUtilTest
+          com.hazelcast.jet.impl.deployment.ProcessorClassLoaderTest
+          com.hazelcast.jet.impl.submitjob.memberside.JobUploadStatusTest
+          com.hazelcast.jet.impl.submitjob.memberside.validator.JarOnClientValidatorTest
+          com.hazelcast.jet.retry.impl.IntervalFunctionTest
+          com.hazelcast.kubernetes.KubernetesApiOriginPolicyTest
+          com.hazelcast.kubernetes.KubernetesConfigTest
+          com.hazelcast.query.impl.TypeConverterTest
+          com.hazelcast.spi.discovery.multicast.MulticastDiscoveryStrategyTest
+          com.hazelcast.spi.utils.RestClientTest
+          com.hazelcast.spi.utils.RetryUtilsTest
+          '''.split()
+          expected = [
+              (pathlib.Path('hazelcast/target/surefire-reports'), name)
+              for name in core
+          ]
+          expected.append((
+              pathlib.Path('hazelcast-sql/target/surefire-reports'),
+              'com.hazelcast.jet.sql.impl.parse.QueryParserTest',
+          ))
+          expected.append((
+              pathlib.Path('hazelcast-build-utils/target/surefire-reports'),
+              'com.hazelcast.buildutils.ExportPackageViewerTest',
+          ))
+          expected.append((
+              pathlib.Path('extensions/cdc-debezium/target/surefire-reports'),
+              'com.hazelcast.jet.cdc.OperationTest',
+          ))
+          total = failures = errors = skipped = 0
+          for directory, name in expected:
+              report = directory / f'TEST-{name}.xml'
+              if not report.is_file():
+                  raise SystemExit(f'missing_test_report={name}')
+              suite = ET.parse(report).getroot()
+              total += int(suite.attrib.get('tests', 0))
+              failures += int(suite.attrib.get('failures', 0))
+              errors += int(suite.attrib.get('errors', 0))
+              skipped += int(suite.attrib.get('skipped', 0))
+          summary = (
+              f'test_suites={len(expected)}\n'
+              f'tests={total}\nfailures={failures}\nerrors={errors}\nskipped={skipped}\n'
+          )
+          pathlib.Path('evidence/test-summary.txt').write_text(summary, encoding='utf-8')
+          print(summary, end='')
+          if total < 385 or failures or errors or skipped:
+              raise SystemExit(1)
+          PY
+
+      - name: Build reviewed runtime artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          PASTURESTACK_OUTPUT_DIR=dist scripts/pasturestack-build-runtime
+          test -s dist/hazelcast-5.7.2.jar
+          sha256sum dist/hazelcast-5.7.2.jar | tee evidence/hazelcast-5.7.2.jar.sha256
+          jar tf dist/hazelcast-5.7.2.jar | grep -Fxq META-INF/LICENSE
+          jar tf dist/hazelcast-5.7.2.jar | grep -Fxq META-INF/NOTICE
+
+      - name: Generate SBOM and scan current source and artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Generate the reviewed runtime SBOM from Maven's resolved dependency
+          # graph.  A filesystem scanner can only see this project's shaded JAR
+          # as one file and therefore cannot reconstruct its embedded libraries.
+          plugin_stage="$RUNNER_TEMP/cyclonedx-maven-plugin"
+          plugin_repo="$HOME/.m2/repository/org/cyclonedx/cyclonedx-maven-plugin/2.9.3"
+          plugin_base=https://repo.maven.apache.org/maven2/org/cyclonedx/cyclonedx-maven-plugin/2.9.3
+          mkdir -p "$plugin_stage" "$plugin_repo"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+            --output "$plugin_stage/cyclonedx-maven-plugin-2.9.3.jar" \
+            "$plugin_base/cyclonedx-maven-plugin-2.9.3.jar"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+            --output "$plugin_stage/cyclonedx-maven-plugin-2.9.3.pom" \
+            "$plugin_base/cyclonedx-maven-plugin-2.9.3.pom"
+          printf '%s  %s\n%s  %s\n' \
+            c452d5eebe28bc86bef2e7c72d129f04f60877bef843eac8120f01fb655be293 \
+            "$plugin_stage/cyclonedx-maven-plugin-2.9.3.jar" \
+            7c8d3c7c1a2efd58c134f09926f3de47d3de26de36130775ab1c3bfb74b4279c \
+            "$plugin_stage/cyclonedx-maven-plugin-2.9.3.pom" | sha256sum -c -
+          install -m 0644 "$plugin_stage/cyclonedx-maven-plugin-2.9.3.jar" "$plugin_repo/"
+          install -m 0644 "$plugin_stage/cyclonedx-maven-plugin-2.9.3.pom" "$plugin_repo/"
+          # The reviewed artifact build above already compiled the reactor.
+          # Install only the POMs and runtime prerequisite JAR into the runner's
+          # ephemeral repository, without recompiling or running tests.
+          ./mvnw -B org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
+            -Dfile=pom.xml -DpomFile=pom.xml
+          ./mvnw -B org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
+            -Dfile=hazelcast-parent/pom.xml -DpomFile=hazelcast-parent/pom.xml
+          test -s hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.2.jar
+          ./mvnw -B org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
+            -Dfile=hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.2.jar \
+            -DpomFile=hazelcast-tpc-engine/pom.xml
+          timeout --signal=TERM --kill-after=30s 30m ./mvnw -B \
+            -f hazelcast/pom.xml \
+            -DskipTests \
+            -Dcyclonedx.skipAttach=true \
+            -DincludeBomSerialNumber=false \
+            -DincludeCompileScope=true \
+            -DincludeProvidedScope=false \
+            -DincludeRuntimeScope=true \
+            -DincludeSystemScope=false \
+            -DincludeTestScope=false \
+            -DoutputFormat=json \
+            -DoutputReactorProjects=false \
+            -DoutputDirectory="$PWD/evidence" \
+            -DoutputName=hazelcast-5.7.2.cdx \
+            -DschemaVersion=1.6 \
+            org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeBom
+          printf '%s  %s\n%s  %s\n' \
+            c452d5eebe28bc86bef2e7c72d129f04f60877bef843eac8120f01fb655be293 \
+            "$plugin_repo/cyclonedx-maven-plugin-2.9.3.jar" \
+            7c8d3c7c1a2efd58c134f09926f3de47d3de26de36130775ab1c3bfb74b4279c \
+            "$plugin_repo/cyclonedx-maven-plugin-2.9.3.pom" | sha256sum -c -
+          timeout --signal=TERM --kill-after=30s 10m ./mvnw -B \
+            -f hazelcast/pom.xml \
+            -Dscope=runtime \
+            -DoutputType=json \
+            -DoutputFile="$PWD/evidence/maven-runtime-dependency-tree.json" \
+            org.apache.maven.plugins:maven-dependency-plugin:3.10.0:tree
+          docker pull "$TRIVY_IMAGE"
+          trivy_cache="$RUNNER_TEMP/trivy-cache"
+          mkdir -p "$trivy_cache"
+          docker run --rm \
+            -v "$trivy_cache:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" image --cache-dir /root/.cache/trivy --download-db-only
+          source_tree=$(mktemp -d)
+          trap 'rm -rf "$source_tree"' EXIT
+          git archive --format=tar HEAD | tar -xf - -C "$source_tree"
+          docker run --rm --network none \
+            -v "$source_tree:/scan:ro" \
+            -v "$PWD/evidence:/evidence" \
+            -v "$trivy_cache:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" fs \
+            --cache-dir /root/.cache/trivy --skip-db-update --offline-scan \
+            --scanners vuln,secret --severity CRITICAL,HIGH --format json \
+            --output /evidence/source-security.json /scan
+          docker run --rm --network none \
+            -v "$PWD/dist:/artifact:ro" \
+            -v "$PWD/evidence:/evidence" \
+            -v "$trivy_cache:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" fs \
+            --cache-dir /root/.cache/trivy --skip-db-update --offline-scan \
+            --scanners vuln --severity CRITICAL,HIGH --format json \
+            --output /evidence/hazelcast-5.7.2.trivy.json /artifact/hazelcast-5.7.2.jar
+          docker run --rm --network none \
+            -v "$PWD/evidence:/evidence" \
+            -v "$trivy_cache:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" sbom \
+            --cache-dir /root/.cache/trivy --skip-db-update --skip-java-db-update --offline-scan \
+            --scanners vuln --severity CRITICAL,HIGH --format json \
+            --output /evidence/hazelcast-5.7.2.sbom.trivy.json \
+            /evidence/hazelcast-5.7.2.cdx.json
+          sha256sum evidence/hazelcast-5.7.2.cdx.json \
+            evidence/hazelcast-5.7.2.sbom.trivy.json evidence/hazelcast-5.7.2.trivy.json \
+            > evidence/security-evidence.sha256
+
+      - name: Enforce complete zero-Critical and zero-High evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          def load(path):
+              with open(path, encoding='utf-8') as stream:
+                  return json.load(stream)
+
+          source = load('evidence/source-security.json')
+          artifact = load('evidence/hazelcast-5.7.2.trivy.json')
+          dependency_scan = load('evidence/hazelcast-5.7.2.sbom.trivy.json')
+          sbom = load('evidence/hazelcast-5.7.2.cdx.json')
+          maven_tree = load('evidence/maven-runtime-dependency-tree.json')
+          source_vulnerabilities = [
+              item
+              for result in source.get('Results', [])
+              for item in result.get('Vulnerabilities') or []
+              if item.get('Severity') in {'CRITICAL', 'HIGH'}
+          ]
+          source_secrets = [
+              item
+              for result in source.get('Results', [])
+              for item in result.get('Secrets') or []
+          ]
+          artifact_vulnerabilities = [
+              item
+              for result in artifact.get('Results', [])
+              for item in result.get('Vulnerabilities') or []
+              if item.get('Severity') in {'CRITICAL', 'HIGH'}
+          ]
+          dependency_vulnerabilities = [
+              item
+              for result in dependency_scan.get('Results', [])
+              for item in result.get('Vulnerabilities') or []
+              if item.get('Severity') in {'CRITICAL', 'HIGH'}
+          ]
+          components = sbom.get('components') or []
+          component_refs = [item.get('bom-ref') for item in components]
+          component_purls = [item.get('purl') for item in components]
+          dependencies = sbom.get('dependencies') or []
+          root_component = sbom.get('metadata', {}).get('component') or {}
+          root_ref = root_component.get('bom-ref')
+          dependency_refs = {item.get('ref') for item in dependencies}
+          allowed_refs = set(component_refs) | {root_ref}
+          dangling_dependency_refs = sorted(
+              child
+              for item in dependencies
+              for child in item.get('dependsOn') or []
+              if child not in allowed_refs
+          )
+          dependencies_exist = any(item.get('dependsOn') for item in dependencies)
+          maven_coordinates = set()
+          remaining_nodes = [maven_tree]
+          while remaining_nodes:
+              node = remaining_nodes.pop()
+              if node.get('scope') in {'compile', 'runtime'} and str(node.get('optional')).lower() != 'true':
+                  maven_coordinates.add((node.get('groupId'), node.get('artifactId'), node.get('version')))
+              remaining_nodes.extend(node.get('children') or [])
+          sbom_coordinates = {
+              (item.get('group'), item.get('name'), item.get('version'))
+              for item in components
+          }
+          maven_root = (maven_tree.get('groupId'), maven_tree.get('artifactId'), maven_tree.get('version'))
+          sbom_root = (root_component.get('group'), root_component.get('name'), root_component.get('version'))
+          missing_from_sbom = sorted(maven_coordinates - sbom_coordinates)
+          unexpected_in_sbom = sorted(sbom_coordinates - maven_coordinates)
+          missing_identity = [
+              item for item in components
+              if not item.get('group') or not item.get('name') or not item.get('version') or not item.get('purl')
+          ]
+          summary = (
+              f'source_critical_high={len(source_vulnerabilities)}\n'
+              f'source_secrets={len(source_secrets)}\n'
+              f'artifact_critical_high={len(artifact_vulnerabilities)}\n'
+              f'dependency_critical_high={len(dependency_vulnerabilities)}\n'
+              f'sbom_spec={sbom.get("specVersion", "missing")}\n'
+              f'sbom_components={len(components)}\n'
+              f'sbom_dependencies={len(dependencies)}\n'
+              f'maven_runtime_components={len(maven_coordinates)}\n'
+              f'sbom_runtime_missing={len(missing_from_sbom)}\n'
+              f'sbom_runtime_unexpected={len(unexpected_in_sbom)}\n'
+              f'sbom_dangling_dependency_refs={len(dangling_dependency_refs)}\n'
+          )
+          pathlib.Path('evidence/security-summary.txt').write_text(summary, encoding='utf-8')
+          print(summary, end='')
+          if (
+              source_vulnerabilities
+              or source_secrets
+              or artifact_vulnerabilities
+              or dependency_vulnerabilities
+              or sbom.get('specVersion') != '1.6'
+              or not components
+              or missing_identity
+              or None in component_refs
+              or None in component_purls
+              or len(component_refs) != len(set(component_refs))
+              or len(component_purls) != len(set(component_purls))
+              or maven_root != ('com.hazelcast', 'hazelcast', '5.7.2')
+              or sbom_root != maven_root
+              or root_ref not in dependency_refs
+              or dependency_refs != allowed_refs
+              or dangling_dependency_refs
+              or not dependencies_exist
+              or missing_from_sbom
+              or unexpected_in_sbom
+          ):
+              raise SystemExit(1)
+          PY
+          # The Maven plugin validates the produced BOM against CycloneDX 1.6
+          # while writing it; this second independent validator prevents a
+          # generator regression from being accepted by its own implementation.
+          docker run --rm --network none \
+            -v "$PWD/evidence:/evidence:ro" \
+            cyclonedx/cyclonedx-cli:0.32.0@sha256:9a858a15e7b0843606efc0ff19d5f7575011a5428d7f3d343b4f6cf09d8f0d4e \
+            validate --input-file /evidence/hazelcast-5.7.2.cdx.json \
+            --input-format json --input-version v1_6 --fail-on-errors
+
+      - name: Upload review evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: distributed-cache-security-${{ github.sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 9
+          include-hidden-files: false
+
+      - name: Clean runner resources
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          docker image rm -f "$TRIVY_IMAGE" >/dev/null 2>&1
+          docker builder prune --all --force >/dev/null 2>&1
+          rm -rf dist evidence

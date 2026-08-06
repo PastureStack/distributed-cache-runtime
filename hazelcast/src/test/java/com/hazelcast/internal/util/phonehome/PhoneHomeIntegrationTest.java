@@ -50,8 +50,8 @@ import java.net.HttpURLConnection;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
@@ -60,15 +60,13 @@ import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.hazelcast.cache.CacheTestSupport.createServerCachingProvider;
 import static com.hazelcast.internal.util.phonehome.BuildInfoProvider.PARDOT_ID_ENV_VAR;
-import static com.hazelcast.internal.util.phonehome.CloudInfoProvider.AWS_ENDPOINT;
-import static com.hazelcast.internal.util.phonehome.CloudInfoProvider.AZURE_ENDPOINT;
 import static com.hazelcast.internal.util.phonehome.CloudInfoProvider.CLOUD_ENVIRONMENT_ENV_VAR;
 import static com.hazelcast.internal.util.phonehome.CloudInfoProvider.DOCKER_FILE_PATH;
-import static com.hazelcast.internal.util.phonehome.CloudInfoProvider.GCP_ENDPOINT;
 import static com.hazelcast.internal.util.phonehome.CloudInfoProvider.KUBERNETES_TOKEN_PATH;
 import static com.hazelcast.internal.util.phonehome.PhoneHomeMetrics.AVERAGE_GET_LATENCY_OF_MAPS_USING_MAPSTORE;
 import static com.hazelcast.internal.util.phonehome.PhoneHomeMetrics.AVERAGE_PUT_LATENCY_OF_MAPS_USING_MAPSTORE;
 import static com.hazelcast.test.Accessors.getNode;
+import static org.junit.Assert.assertEquals;
 import static uk.org.webcompere.systemstubs.SystemStubs.withEnvironmentVariables;
 
 @RunWith(HazelcastSerialClassRunner.class)
@@ -86,9 +84,6 @@ public class PhoneHomeIntegrationTest extends HazelcastTestSupport {
         int port = wireMockRule.port();
 
         Map<HazelcastProperty, String> properties = Map.of(
-                AWS_ENDPOINT, "http://localhost:" + port + "/latest/meta-data",
-                AZURE_ENDPOINT, "http://localhost:" + port + "/metadata/instance/compute?api-version=2018-02-01",
-                GCP_ENDPOINT, "http://localhost:" + port + "/metadata.google.internal",
                 KUBERNETES_TOKEN_PATH, System.getProperty("user.dir"),
                 DOCKER_FILE_PATH, System.getProperty("user.dir")
         );
@@ -97,19 +92,12 @@ public class PhoneHomeIntegrationTest extends HazelcastTestSupport {
         node = getNode(instance);
 
         phoneHome = new PhoneHome(node, "http://localhost:" + port + "/ping");
-        stubUrls("200", "4XX", "4XX", "4XX");
+        stubPhoneHome("200");
     }
 
-    private void stubUrls(String phoneHomeStatus, String awsStatus, String azureStatus, String gcpStatus) {
+    private void stubPhoneHome(String phoneHomeStatus) {
         stubFor(post(urlPathEqualTo("/ping"))
                 .willReturn(checkStatusConditional(phoneHomeStatus.equals("200"))));
-        stubFor(get(urlPathEqualTo("/latest/meta-data"))
-                .willReturn(checkStatusConditional(awsStatus.equals("200"))));
-        stubFor(get(urlPathEqualTo("/metadata/instance/compute"))
-                .withQueryParam("api-version", equalTo("2018-02-01"))
-                .willReturn(checkStatusConditional(azureStatus.equals("200"))));
-        stubFor(get(urlPathEqualTo("/metadata.google.internal"))
-                .willReturn(checkStatusConditional(gcpStatus.equals("200"))));
     }
 
     private ResponseDefinitionBuilder checkStatusConditional(boolean condition) {
@@ -252,29 +240,24 @@ public class PhoneHomeIntegrationTest extends HazelcastTestSupport {
 
     @Test
     public void testForCloudIfAWS() {
-        stubUrls("200", "200", "4XX", "4XX");
-        phoneHome.phoneHome(false);
-
-        verify(1, postRequestedFor(urlPathEqualTo("/ping"))
-                .withRequestBody(containingParam("cld" /*CLOUD*/, "A")));
+        assertEquals("A", CloudInfoProvider.detectCloud(Map.of("AWS_EXECUTION_ENV", "AWS_ECS_FARGATE")));
     }
 
     @Test
     public void testForCloudIfAzure() {
-        stubUrls("200", "4XX", "200", "4XX");
-        phoneHome.phoneHome(false);
-
-        verify(1, postRequestedFor(urlPathEqualTo("/ping"))
-                .withRequestBody(containingParam("cld" /*CLOUD*/, "Z")));
+        assertEquals("Z", CloudInfoProvider.detectCloud(Map.of("WEBSITE_INSTANCE_ID", "instance-id")));
     }
 
     @Test
     public void testForCloudIfGCP() {
-        stubUrls("200", "4XX", "4XX", "200");
+        assertEquals("G", CloudInfoProvider.detectCloud(Map.of("K_SERVICE", "service-name")));
+    }
+
+    @Test
+    public void testCloudDetectionDoesNotProbeMetadataEndpoints() {
         phoneHome.phoneHome(false);
 
-        verify(1, postRequestedFor(urlPathEqualTo("/ping"))
-                .withRequestBody(containingParam("cld" /*CLOUD*/, "G")));
+        verify(0, getRequestedFor(anyUrl()));
     }
 
     @Test
@@ -327,7 +310,6 @@ public class PhoneHomeIntegrationTest extends HazelcastTestSupport {
 
     @Test
     public void testForViridian() throws Exception {
-        stubUrls("200", "200", "4XX", "4XX");
         withEnvironmentVariables(CLOUD_ENVIRONMENT_ENV_VAR, "SERVERLESS")
                 .execute(() -> phoneHome.phoneHome(false));
 

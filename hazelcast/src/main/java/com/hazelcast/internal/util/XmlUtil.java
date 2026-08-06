@@ -61,6 +61,10 @@ public final class XmlUtil {
     public static final String SYSTEM_PROPERTY_IGNORE_XXE_PROTECTION_FAILURES = "hazelcast.ignoreXxeProtectionFailures";
 
     private static final String FEATURES_DISALLOW_DOCTYPE = "http://apache.org/xml/features/disallow-doctype-decl";
+    private static final String FEATURE_EXTERNAL_GENERAL_ENTITIES = "http://xml.org/sax/features/external-general-entities";
+    private static final String FEATURE_EXTERNAL_PARAMETER_ENTITIES = "http://xml.org/sax/features/external-parameter-entities";
+    private static final String FEATURE_LOAD_EXTERNAL_DTD =
+            "http://apache.org/xml/features/nonvalidating/load-external-dtd";
     private static final ILogger LOGGER = Logger.getLogger(XmlUtil.class);
 
     private XmlUtil() {
@@ -74,7 +78,17 @@ public final class XmlUtil {
     public static DocumentBuilderFactory getNsAwareDocumentBuilderFactory() throws ParserConfigurationException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
-        setFeature(dbf, FEATURES_DISALLOW_DOCTYPE);
+        // These calls deliberately bypass the legacy ignore-failures compatibility
+        // switch. Configuration parsing must fail closed on the supported JDK rather
+        // than continue with a provider that cannot enforce every XXE control.
+        dbf.setFeature(FEATURES_DISALLOW_DOCTYPE, true);
+        dbf.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, false);
+        dbf.setFeature(FEATURE_EXTERNAL_PARAMETER_ENTITIES, false);
+        dbf.setFeature(FEATURE_LOAD_EXTERNAL_DTD, false);
+        dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        dbf.setXIncludeAware(false);
+        dbf.setExpandEntityReferences(false);
         return dbf;
     }
 

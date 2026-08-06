@@ -135,7 +135,7 @@ public class TpcTestSupport {
     }
 
     public static void assertTrueAllTheTime(AssertTask task, long durationSeconds) {
-        for (int i = 0; i <= durationSeconds; i++) {
+        for (long i = 0; i <= durationSeconds; i++) {
             try {
                 task.run();
             } catch (Exception e) {
@@ -191,7 +191,7 @@ public class TpcTestSupport {
         int sleepMillis = 200;
         long iterations = timeoutSeconds * 5;
         long deadline = System.currentTimeMillis() + SECONDS.toMillis(timeoutSeconds);
-        for (int i = 0; i < iterations && System.currentTimeMillis() < deadline; i++) {
+        for (long i = 0; i < iterations && System.currentTimeMillis() < deadline; i++) {
             try {
                 try {
                     task.run();

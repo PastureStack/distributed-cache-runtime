@@ -35,7 +35,7 @@ public final class IntervalFunctions {
     public static IntervalFunction exponentialBackoff(long intervalMillis, double multiplier) {
         checkInterval(intervalMillis);
         checkMultiplier(multiplier);
-        return new IntervalFunctionImpl(attempt -> (long) (intervalMillis * Math.pow(multiplier, attempt - 1)),
+        return new IntervalFunctionImpl(attempt -> exponentialInterval(intervalMillis, multiplier, attempt, Long.MAX_VALUE),
                 "exponential backoff from " + intervalMillis + "ms by a factor of " + multiplier);
     }
 
@@ -44,7 +44,7 @@ public final class IntervalFunctions {
         checkMultiplier(multiplier);
         checkInterval(capMillis);
         return new IntervalFunctionImpl(
-                attempt -> Math.min(capMillis, (long) (intervalMillis * Math.pow(multiplier, attempt - 1))),
+                attempt -> exponentialInterval(intervalMillis, multiplier, attempt, capMillis),
                 "exponential backoff from " + intervalMillis + "ms by a factor of " + multiplier);
     }
 
@@ -62,9 +62,18 @@ public final class IntervalFunctions {
     }
 
     private static void checkMultiplier(double multiplier) {
-        if (multiplier < 1.0) {
+        if (!Double.isFinite(multiplier) || multiplier < 1.0) {
             throw new IllegalArgumentException("Illegal argument multiplier: " + multiplier);
         }
+    }
+
+    private static long exponentialInterval(long intervalMillis, double multiplier, int attempt, long capMillis) {
+        checkAttempt(attempt);
+        double value = intervalMillis * Math.pow(multiplier, attempt - 1);
+        if (!Double.isFinite(value) || value >= capMillis) {
+            return capMillis;
+        }
+        return (long) value;
     }
 
     private static class IntervalFunctionImpl implements IntervalFunction {

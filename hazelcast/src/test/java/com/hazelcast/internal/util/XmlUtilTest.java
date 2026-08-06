@@ -131,6 +131,14 @@ public class XmlUtilTest {
     public void testGetDocumentBuilderFactory() throws Exception {
         DocumentBuilderFactory dbf = XmlUtil.getNsAwareDocumentBuilderFactory();
         assertNotNull(dbf);
+        assertDocumentBuilderRejectsExternalEntity(dbf);
+
+        // The supported JDK must remain fail-closed even when an application sets
+        // the legacy compatibility property that affects the generic helper APIs.
+        ignoreXxeFailureProp.setOrClearProperty("true");
+        assertDocumentBuilderRejectsExternalEntity(XmlUtil.getNsAwareDocumentBuilderFactory());
+
+        ignoreXxeFailureProp.setOrClearProperty(null);
         assertThrows(ParserConfigurationException.class, () -> XmlUtil.setFeature(dbf, "test://no-such-feature"));
         ignoreXxeFailureProp.setOrClearProperty("false");
         assertThrows(ParserConfigurationException.class, () -> XmlUtil.setFeature(dbf, "test://no-such-feature"));
@@ -172,6 +180,13 @@ public class XmlUtilTest {
                 () -> XmlUtil.setProperty(xmlInputFactory, "test://no-such-property", false));
         ignoreXxeFailureProp.setOrClearProperty("true");
         XmlUtil.setProperty(xmlInputFactory, "test://no-such-feature", false);
+    }
+
+    private void assertDocumentBuilderRejectsExternalEntity(DocumentBuilderFactory dbf) throws Exception {
+        DocumentBuilder documentBuilder = dbf.newDocumentBuilder();
+        assertThrows(SAXException.class,
+                () -> documentBuilder.parse(new ByteArrayInputStream(server.getTestXml().getBytes(UTF_8))));
+        assertEquals(0, server.getHits());
     }
 
     private void staxReadEvents(XMLEventReader reader) throws XMLStreamException {

@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 
+import static com.hazelcast.internal.util.SecureFileAccess.requireSafeFileName;
+
 /**
  * Starts a Hazelcast Member.
  */
@@ -46,10 +48,11 @@ public final class HazelcastMemberStarter {
         printMemberPort(hz);
     }
 
-    private static void printMemberPort(HazelcastInstance hz) throws IOException {
+    static void printMemberPort(HazelcastInstance hz) throws IOException {
         String printPort = System.getProperty("print.port");
         if (printPort != null) {
-            try (PrintWriter printWriter = new PrintWriter("ports" + File.separator + printPort, StandardCharsets.UTF_8)) {
+            String safeName = requireSafeFileName(printPort, "port output file name");
+            try (PrintWriter printWriter = new PrintWriter("ports" + File.separator + safeName, StandardCharsets.UTF_8)) {
                 printWriter.println(hz.getCluster().getLocalMember().getAddress().getPort());
             }
         }

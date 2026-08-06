@@ -106,13 +106,19 @@ final class KubernetesConfig {
         this.servicePerPodLabelValue = getOrNull(properties, KUBERNETES_SYSTEM_PREFIX, SERVICE_PER_POD_LABEL_VALUE);
         this.kubernetesApiRetries
                 = getOrDefault(properties, KUBERNETES_SYSTEM_PREFIX, KUBERNETES_API_RETIRES, DEFAULT_KUBERNETES_API_RETRIES);
-        this.kubernetesMasterUrl = getOrDefault(properties, KUBERNETES_SYSTEM_PREFIX, KUBERNETES_MASTER_URL, DEFAULT_MASTER_URL);
+        this.kubernetesMasterUrl = configuredMasterUrl(properties);
         this.tokenProvider = buildTokenProvider(properties);
         this.kubernetesCaCertificate = caCertificate(properties);
         this.servicePort = getOrDefault(properties, KUBERNETES_SYSTEM_PREFIX, SERVICE_PORT, 0);
         this.namespace = getNamespaceWithFallbacks(properties, KUBERNETES_SYSTEM_PREFIX, NAMESPACE);
 
         validateConfig();
+    }
+
+    private String configuredMasterUrl(Map<String, Comparable> properties) {
+        String configured = getOrDefault(
+                properties, KUBERNETES_SYSTEM_PREFIX, KUBERNETES_MASTER_URL, DEFAULT_MASTER_URL);
+        return KubernetesApiOriginPolicy.requireAllowed(configured);
     }
 
     private ExposeExternallyMode getExposeExternallyMode(Map<String, Comparable> properties) {

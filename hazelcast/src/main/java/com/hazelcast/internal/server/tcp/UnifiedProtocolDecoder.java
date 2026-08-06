@@ -200,7 +200,10 @@ public class UnifiedProtocolDecoder
         if (rcvBuf == -1) {
             rcvBuf = props.getInteger(SOCKET_RECEIVE_BUFFER_SIZE);
         }
-        return rcvBuf * KILO_BYTE;
+        if (rcvBuf <= 0 || rcvBuf > Integer.MAX_VALUE / KILO_BYTE) {
+            throw new IllegalArgumentException("Client receive buffer size is outside the supported range");
+        }
+        return Math.multiplyExact(rcvBuf, KILO_BYTE);
     }
 
     // SSLv3 https://tools.ietf.org/html/rfc6101#section-5.2

@@ -108,6 +108,8 @@ public final class SimpleMapTest {
             System.out.println();
         }
 
+        validateArguments(threadCount, entryCount, valueSize, getPercentage, putPercentage);
+
         SimpleMapTest test = new SimpleMapTest(threadCount, entryCount, valueSize, getPercentage, putPercentage, load);
         test.start();
     }
@@ -227,7 +229,14 @@ public final class SimpleMapTest {
         logger.info("Value Size: " + valueSize);
         logger.info("Get Percentage: " + getPercentage);
         logger.info("Put Percentage: " + putPercentage);
-        logger.info("Remove Percentage: " + (100 - (putPercentage + getPercentage)));
+        logger.info("Remove Percentage: " + (100 - getPercentage - putPercentage));
         logger.info("Load: " + load);
+    }
+
+    private static void validateArguments(int threads, int entries, int bytes, int gets, int puts) {
+        if (threads < 1 || entries < 1 || bytes < 0
+                || gets < 0 || puts < 0 || gets > 100 || puts > 100 - gets) {
+            throw new IllegalArgumentException("Counts must be positive and operation percentages must total at most 100");
+        }
     }
 }

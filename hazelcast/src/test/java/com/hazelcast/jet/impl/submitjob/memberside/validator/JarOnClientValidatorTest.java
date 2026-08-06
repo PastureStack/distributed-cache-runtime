@@ -19,6 +19,8 @@ package com.hazelcast.jet.impl.submitjob.memberside.validator;
 import com.hazelcast.jet.JetException;
 import org.junit.Test;
 
+import java.nio.file.Files;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class JarOnClientValidatorTest {
@@ -27,7 +29,27 @@ public class JarOnClientValidatorTest {
     public void testValidateTempDirectoryPath() {
         assertThatThrownBy(() -> JarOnClientValidator.validateUploadDirectoryPath("foo"))
                 .isInstanceOf(JetException.class)
-                .hasMessageContaining("The upload directory path does not exist: foo");
+                .hasMessageContaining("upload directory path is invalid");
+    }
+
+    @Test
+    public void acceptsExistingUploadDirectory() throws Exception {
+        JarOnClientValidator.validateUploadDirectoryPath(Files.createTempDirectory("job-upload").toString());
+    }
+
+    @Test
+    public void rejectsTraversalAndUnsafeUploadFileName() {
+        assertThatThrownBy(() -> JarOnClientValidator.validateUploadDirectoryPath("target/../target"))
+                .isInstanceOf(JetException.class);
+        assertThatThrownBy(() -> JarOnClientValidator.validateFileName("../job"))
+                .isInstanceOf(JetException.class);
+        assertThatThrownBy(() -> JarOnClientValidator.validateFileName("ab"))
+                .isInstanceOf(JetException.class);
+    }
+
+    @Test
+    public void acceptsSafeUploadFileName() {
+        JarOnClientValidator.validateFileName("job-client");
     }
 
     @Test

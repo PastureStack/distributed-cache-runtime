@@ -49,4 +49,9 @@ public class OperationTest {
         assertEquals(Operation.DELETE, Operation.get("cx"));
     }
 
+    @Test(expected = ParsingException.class)
+    public void getInvalid_MaxUnicodeCodePoint() throws ParsingException {
+        Operation.get("\uffff");
+    }
+
 }

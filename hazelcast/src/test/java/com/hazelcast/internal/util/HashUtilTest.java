@@ -127,4 +127,10 @@ public class HashUtilTest extends HazelcastTestSupport {
     public void hashToIndex_whenItemCountZero() {
         hashToIndex(Integer.MIN_VALUE, 0);
     }
+
+    @Test
+    public void fastIntMixPreservesModularHashContractAtIntegerBounds() {
+        assertEquals(0xE1C8_678F, HashUtil.fastIntMix(Integer.MAX_VALUE));
+        assertEquals(0x8000_8000, HashUtil.fastIntMix(Integer.MIN_VALUE));
+    }
 }

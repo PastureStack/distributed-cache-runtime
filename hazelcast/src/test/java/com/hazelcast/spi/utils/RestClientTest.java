@@ -33,6 +33,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -85,6 +86,24 @@ public class RestClientTest {
 
         // then
         assertEquals(BODY_RESPONSE, result);
+    }
+
+    @Test
+    public void originBoundClientPreservesSameOriginRequest() {
+        stubFor(get(urlEqualTo(API_ENDPOINT))
+                .willReturn(aResponse().withStatus(HttpURLConnection.HTTP_OK).withBody(BODY_RESPONSE)));
+
+        String result = RestClient.createForOrigin(address + API_ENDPOINT, URI.create(address), 5)
+                .get()
+                .getBody();
+
+        assertEquals(BODY_RESPONSE, result);
+    }
+
+    @Test
+    public void originBoundClientRejectsCrossOriginBeforeConnecting() {
+        assertThrows(RestClientException.class, () -> RestClient.createForOrigin(
+                "http://127.0.0.1:" + wireMockRule.port() + API_ENDPOINT, URI.create(address), 5));
     }
 
     @Test

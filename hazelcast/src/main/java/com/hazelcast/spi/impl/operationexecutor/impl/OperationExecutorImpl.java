@@ -158,7 +158,10 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
 
     private OperationRunner[] initGenericOperationRunners(HazelcastProperties properties, OperationRunnerFactory runnerFactory) {
         int threadCount = properties.getInteger(GENERIC_OPERATION_THREAD_COUNT);
-        OperationRunner[] operationRunners = new OperationRunner[threadCount + priorityThreadCount];
+        if (threadCount <= 0 || priorityThreadCount < 0 || threadCount > Integer.MAX_VALUE - priorityThreadCount) {
+            throw new IllegalArgumentException("Generic operation thread counts are outside the supported range");
+        }
+        OperationRunner[] operationRunners = new OperationRunner[Math.addExact(threadCount, priorityThreadCount)];
         for (int partitionId = 0; partitionId < operationRunners.length; partitionId++) {
             operationRunners[partitionId] = runnerFactory.createGenericRunner();
         }
@@ -256,7 +259,7 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
             threads[threadIndex] = operationThread;
             operationRunner.setCurrentThread(operationThread);
 
-            if (threadIndex == priorityThreadCount - 1) {
+            if (priorityThreadCount > 0 && threadIndex + 1 == priorityThreadCount) {
                 threadId = 0;
             } else {
                 threadId++;

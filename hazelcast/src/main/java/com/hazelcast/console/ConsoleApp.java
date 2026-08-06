@@ -42,9 +42,8 @@ import com.hazelcast.topic.Message;
 import com.hazelcast.topic.MessageListener;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.util.Collection;
@@ -63,6 +62,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 
 import static com.hazelcast.internal.util.MapUtil.createHashMap;
+import static com.hazelcast.internal.util.SecureFileAccess.newInputStream;
 import static com.hazelcast.internal.util.StringUtil.equalsIgnoreCase;
 import static com.hazelcast.internal.util.StringUtil.lowerCaseInternal;
 import static com.hazelcast.memory.MemoryUnit.BYTES;
@@ -194,10 +194,12 @@ public class ConsoleApp implements EntryListener<Object, Object>, ItemListener<O
 
         String first = command;
         int spaceIndex = command.indexOf(' ');
-        String[] argsSplit = command.split(" ");
-        String[] args = new String[argsSplit.length];
-        for (int i = 0; i < argsSplit.length; i++) {
-            args[i] = argsSplit[i].strip();
+        String[] args = command.split(" ");
+        if (args.length == 0) {
+            return;
+        }
+        for (int i = 0; i < args.length; i++) {
+            args[i] = args[i].strip();
         }
         if (spaceIndex != -1) {
             first = args[0];
@@ -245,10 +247,18 @@ public class ConsoleApp implements EntryListener<Object, Object>, ItemListener<O
         } else if (command.indexOf(';') != -1) {
             handleColon(command);
         } else if ("silent".equals(first)) {
+            if (args.length < 2) {
+                println("Usage: silent true|false");
+                return;
+            }
             silent = Boolean.parseBoolean(args[1]);
         } else if (equalsIgnoreCase("shutdown", first)) {
             handleShutdown();
         } else if ("echo".equals(first)) {
+            if (args.length < 2) {
+                println("Usage: echo true|false");
+                return;
+            }
             echo = Boolean.parseBoolean(args[1]);
             println("echo: " + echo);
         } else if ("ns".equals(first)) {
@@ -465,20 +475,17 @@ public class ConsoleApp implements EntryListener<Object, Object>, ItemListener<O
             println("usage: @<file-name>");
             return;
         }
-        File f = new File(first.substring(1));
-        println("Executing script file " + f.getAbsolutePath());
-        if (f.exists()) {
-            try (BufferedReader br = new BufferedReader(new FileReader(f, UTF_8))) {
-                String l = br.readLine();
-                while (l != null) {
-                    handleCommand(l);
-                    l = br.readLine();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
+        String configuredFile = first.substring(1);
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(newInputStream(configuredFile, "console script file"), UTF_8))) {
+            println("Executing validated script file");
+            String l = br.readLine();
+            while (l != null) {
+                handleCommand(l);
+                l = br.readLine();
             }
-        } else {
-            println("File not found! " + f.getAbsolutePath());
+        } catch (IOException e) {
+            println("Script file was not found or did not pass filesystem validation");
         }
     }
 
@@ -713,6 +720,9 @@ public class ConsoleApp implements EntryListener<Object, Object>, ItemListener<O
         if (args.length > 3) {
             start = Integer.parseInt(args[3]);
         }
+        if (count < 0 || start > Integer.MAX_VALUE - count) {
+            throw new IllegalArgumentException("Count and start must define a non-negative integer key range");
+        }
         Map<String, byte[]> theMap = createHashMap(count);
         for (int i = 0; i < count; i++) {
             theMap.put("key" + (start + i), value);
@@ -746,6 +756,9 @@ public class ConsoleApp implements EntryListener<Object, Object>, ItemListener<O
         int start = 0;
         if (args.length > 2) {
             start = Integer.parseInt(args[2]);
+        }
+        if (count < 0 || start > Integer.MAX_VALUE - count) {
+            throw new IllegalArgumentException("Count and start must define a non-negative integer key range");
         }
         long started = Clock.currentTimeMillis();
         for (int i = 0; i < count; i++) {

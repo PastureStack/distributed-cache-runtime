@@ -69,6 +69,23 @@ public class QueryParserTest {
     }
 
     @Test
+    public void lineSeparatorIsHandledAsLiteralText() {
+        String originalSeparator = System.getProperty("line.separator");
+        try {
+            System.setProperty("line.separator", "[");
+            assertThatThrownBy(() -> parser.parse("show tables"))
+                    .isInstanceOf(QueryException.class)
+                    .hasMessageContaining("Encountered \"show tables\" at line 1, column 1.");
+        } finally {
+            if (originalSeparator == null) {
+                System.clearProperty("line.separator");
+            } else {
+                System.setProperty("line.separator", originalSeparator);
+            }
+        }
+    }
+
+    @Test
     public void test_trailingSemicolon() {
         given(sqlValidator.validate(isA(SqlNode.class))).willReturn(validatedNode);
 

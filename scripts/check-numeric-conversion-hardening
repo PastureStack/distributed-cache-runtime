@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$repo_root"
+
+source_file=hazelcast/src/main/java/com/hazelcast/query/impl/TypeConverters.java
+
+for marker in \
+    'new BigDecimal(string).longValueExact()' \
+    'new BigDecimal(string).intValueExact()' \
+    'new BigDecimal(string).shortValueExact()' \
+    'new BigDecimal(string).byteValueExact()' \
+    'Float.parseFloat(string)' \
+    'Double.compare(parsedDouble, parsedFloat) == 0'; do
+    grep -Fq "$marker" "$source_file"
+done
+
+command -v javac >/dev/null
+command -v java >/dev/null
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p \
+    "$tmp/src/com/hazelcast/core" \
+    "$tmp/src/com/hazelcast/nio/serialization" \
+    "$tmp/src/com/hazelcast/query/impl" \
+    "$tmp/classes"
+
+cp "$source_file" "$tmp/src/com/hazelcast/query/impl/TypeConverters.java"
+
+cat > "$tmp/src/com/hazelcast/core/TypeConverter.java" <<'JAVA'
+package com.hazelcast.core;
+
+public interface TypeConverter {
+    Comparable convert(Comparable value);
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/nio/serialization/Portable.java" <<'JAVA'
+package com.hazelcast.nio.serialization;
+
+public interface Portable {
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/query/impl/AbstractIndex.java" <<'JAVA'
+package com.hazelcast.query.impl;
+
+public abstract class AbstractIndex {
+    public static final Comparable NULL = new NullValue();
+
+    private static final class NullValue implements Comparable<NullValue> {
+        @Override
+        public int compareTo(NullValue other) {
+            return 0;
+        }
+    }
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/query/impl/DateHelper.java" <<'JAVA'
+package com.hazelcast.query.impl;
+
+import java.sql.Timestamp;
+import java.util.Date;
+
+public final class DateHelper {
+    private DateHelper() {
+    }
+
+    public static java.sql.Date parseSqlDate(String value) {
+        return java.sql.Date.valueOf(value);
+    }
+
+    public static Timestamp parseTimeStamp(String value) {
+        return Timestamp.valueOf(value);
+    }
+
+    public static Date parseDate(String value) {
+        return new Date(Long.parseLong(value));
+    }
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/query/impl/Numbers.java" <<'JAVA'
+package com.hazelcast.query.impl;
+
+public final class Numbers {
+    private Numbers() {
+    }
+
+    public static boolean equalLongAndDouble(long integral, double floating) {
+        return Double.isFinite(floating) && floating == integral && (long) floating == integral;
+    }
+
+    public static boolean equalDoubles(double first, double second) {
+        return Double.compare(first, second) == 0;
+    }
+
+    public static boolean equalFloats(float first, float second) {
+        return Float.compare(first, second) == 0;
+    }
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/query/impl/IdentityConverter.java" <<'JAVA'
+package com.hazelcast.query.impl;
+
+import com.hazelcast.core.TypeConverter;
+
+final class IdentityConverter implements TypeConverter {
+    @Override
+    public Comparable convert(Comparable value) {
+        return value;
+    }
+}
+JAVA
+
+cat > "$tmp/src/com/hazelcast/query/impl/UUIDConverter.java" <<'JAVA'
+package com.hazelcast.query.impl;
+
+import com.hazelcast.core.TypeConverter;
+
+import java.util.UUID;
+
+final class UUIDConverter implements TypeConverter {
+    @Override
+    public Comparable convert(Comparable value) {
+        return value instanceof UUID ? value : UUID.fromString(value.toString());
+    }
+}
+JAVA
+
+cat > "$tmp/src/TestNumericConversionHardening.java" <<'JAVA'
+import com.hazelcast.query.impl.TypeConverters;
+
+public final class TestNumericConversionHardening {
+    private TestNumericConversionHardening() {
+    }
+
+    public static void main(String[] args) {
+        assertValue(Long.class, 1L, TypeConverters.LONG_CONVERTER.convert("1.0"));
+        assertValue(Integer.class, 1, TypeConverters.INTEGER_CONVERTER.convert("1.0"));
+        assertValue(Short.class, (short) 1, TypeConverters.SHORT_CONVERTER.convert("1.0"));
+        assertValue(Byte.class, (byte) 1, TypeConverters.BYTE_CONVERTER.convert("1.0"));
+        assertValue(Float.class, 1.0F, TypeConverters.FLOAT_CONVERTER.convert("1.0"));
+
+        assertValue(Double.class, Double.parseDouble("9223372036854775808"),
+                TypeConverters.LONG_CONVERTER.convert("9223372036854775808"));
+        assertValue(Double.class, Double.parseDouble("-9223372036854775809"),
+                TypeConverters.LONG_CONVERTER.convert("-9223372036854775809"));
+        assertValue(Double.class, Double.parseDouble("1.0000000000000001"),
+                TypeConverters.LONG_CONVERTER.convert("1.0000000000000001"));
+        assertValue(Double.class, 2147483648.0D,
+                TypeConverters.INTEGER_CONVERTER.convert("2147483648.0"));
+        assertValue(Double.class, 32768.0D,
+                TypeConverters.SHORT_CONVERTER.convert("32768.0"));
+        assertValue(Double.class, 128.0D,
+                TypeConverters.BYTE_CONVERTER.convert("128.0"));
+        assertValue(Double.class, 0.1D,
+                TypeConverters.FLOAT_CONVERTER.convert("0.1"));
+        assertValue(Float.class, Float.POSITIVE_INFINITY,
+                TypeConverters.FLOAT_CONVERTER.convert("Infinity"));
+        assertValue(Double.class, Double.NaN,
+                TypeConverters.FLOAT_CONVERTER.convert("NaN"));
+
+        System.out.println("DISTRIBUTED_CACHE_NUMERIC_CONVERSION_OK valid=5 unsafe_narrowing_rejected=9");
+    }
+
+    private static void assertValue(Class<?> expectedType, Object expected, Object actual) {
+        if (!expectedType.isInstance(actual)) {
+            throw new AssertionError("Expected " + expectedType.getName() + " but got "
+                    + (actual == null ? "null" : actual.getClass().getName()));
+        }
+        if (expected instanceof Double expectedDouble && expectedDouble.isNaN()) {
+            if (!Double.isNaN((Double) actual)) {
+                throw new AssertionError("Expected NaN but got " + actual);
+            }
+        } else if (!expected.equals(actual)) {
+            throw new AssertionError("Expected " + expected + " but got " + actual);
+        }
+    }
+}
+JAVA
+
+javac --release 17 -Xlint:deprecation -Werror -d "$tmp/classes" \
+    "$tmp/src/com/hazelcast/core/TypeConverter.java" \
+    "$tmp/src/com/hazelcast/nio/serialization/Portable.java" \
+    "$tmp/src/com/hazelcast/query/impl/AbstractIndex.java" \
+    "$tmp/src/com/hazelcast/query/impl/DateHelper.java" \
+    "$tmp/src/com/hazelcast/query/impl/Numbers.java" \
+    "$tmp/src/com/hazelcast/query/impl/IdentityConverter.java" \
+    "$tmp/src/com/hazelcast/query/impl/UUIDConverter.java" \
+    "$tmp/src/com/hazelcast/query/impl/TypeConverters.java" \
+    "$tmp/src/TestNumericConversionHardening.java"
+java -cp "$tmp/classes" TestNumericConversionHardening

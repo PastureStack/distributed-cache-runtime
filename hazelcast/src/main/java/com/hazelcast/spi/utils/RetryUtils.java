@@ -90,13 +90,13 @@ public final class RetryUtils {
         return false;
     }
 
-    private static long backoffIntervalForRetry(int retryCount) {
+    static long backoffIntervalForRetry(int retryCount) {
         long result = INITIAL_BACKOFF_MS;
         for (int i = 1; i < retryCount; i++) {
-            result *= BACKOFF_MULTIPLIER;
-            if (result > MAX_BACKOFF_MS) {
+            if (result > MAX_BACKOFF_MS / BACKOFF_MULTIPLIER) {
                 return MAX_BACKOFF_MS;
             }
+            result = Math.addExact(result, result / 2);
         }
         return result;
     }

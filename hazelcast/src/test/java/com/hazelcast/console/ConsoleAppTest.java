@@ -28,10 +28,14 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -142,6 +146,59 @@ public class ConsoleAppTest extends HazelcastTestSupport {
         assertTrue(map.containsKey("key1099"));
         assertFalse(map.containsKey("key1100"));
         assertEquals(8, ((byte[]) map.get("key1050")).length);
+    }
+
+    @Test
+    public void missingBooleanArgumentsReturnUsageInsteadOfIndexingPastTheArray() {
+        consoleApp.handleCommand("silent");
+        assertTextInSystemOut("Usage: silent true|false");
+
+        consoleApp.handleCommand("echo");
+        assertTextInSystemOut("Usage: echo true|false");
+    }
+
+    @Test
+    public void validBooleanArgumentsRemainSupported() {
+        consoleApp.handleCommand("echo true");
+        assertTextInSystemOut("echo: true");
+
+        consoleApp.handleCommand("echo false");
+        assertTextInSystemOut("echo: false");
+    }
+
+    @Test
+    public void mapBulkKeyRangeOverflowIsRejected() {
+        assertThatThrownBy(() -> consoleApp.handleCommand("m.putmany 2 8 2147483647"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("key range");
+        assertThatThrownBy(() -> consoleApp.handleCommand("m.removemany 2 2147483647"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("key range");
+    }
+
+    @Test
+    public void scriptCommandReadsValidatedRegularFile() throws IOException {
+        Path script = Files.createTempFile("console-script", ".txt");
+        try {
+            Files.writeString(script, "echo true\n", StandardCharsets.UTF_8);
+
+            consoleApp.handleCommand("@" + script);
+
+            assertThat(resetSystemOut())
+                    .contains("Executing validated script file")
+                    .contains("echo: true");
+        } finally {
+            Files.deleteIfExists(script);
+        }
+    }
+
+    @Test
+    public void scriptCommandRejectsTraversalBeforeFilesystemAccess() {
+        consoleApp.handleCommand("@../outside.txt");
+
+        assertThat(resetSystemOut())
+                .contains("did not pass filesystem validation")
+                .doesNotContain("outside.txt");
     }
 
     /**

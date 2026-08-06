@@ -29,6 +29,7 @@ public class UtilsTest {
     public void splitByCommaTest() {
         assertEquals(asList("project1", "project2"), splitByComma("project1,project2"));
         assertEquals(asList("project1", "project2"), splitByComma("    project1 ,  project2 "));
+        assertEquals(asList("project1", "", "project2"), splitByComma("project1,,project2,"));
         assertEquals(asList("project1"), splitByComma("project1"));
         assertEquals(emptyList(), splitByComma(null));
     }
@@ -38,5 +39,6 @@ public class UtilsTest {
         assertEquals("us-east1-a", lastPartOf("https://www.googleapis.com/compute/v1/projects/projectId/zones/us-east1-a", "/"));
         assertEquals("", lastPartOf("", ""));
         assertEquals("", lastPartOf("", "/"));
+        assertEquals("suffix", lastPartOf("prefix.*suffix", ".*"));
     }
 }

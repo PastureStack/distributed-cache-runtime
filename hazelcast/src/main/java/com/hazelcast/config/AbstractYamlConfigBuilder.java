@@ -104,7 +104,7 @@ public abstract class AbstractYamlConfigBuilder extends AbstractConfigBuilder {
             }
 
             YamlNode rootLoaded;
-            try (InputStream inputStream = url.openStream()) {
+            try (InputStream inputStream = ConfigLoader.openConfig(url)) {
                 rootLoaded = YamlLoader.load(inputStream);
             } catch (Exception ex) {
                 throw new InvalidConfigurationException("Loading YAML document from resource " + url.getPath() + " failed", ex);

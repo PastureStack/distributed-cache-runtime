@@ -17,12 +17,12 @@
 package com.hazelcast.dataconnection.impl;
 
 import com.hazelcast.config.DataConnectionConfig;
+import com.hazelcast.core.HazelcastException;
 import com.hazelcast.dataconnection.DataConnectionResource;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import com.hazelcast.test.annotation.ParallelJVMTest;
 import com.hazelcast.test.annotation.QuickTest;
 import com.zaxxer.hikari.HikariDataSource;
-import com.zaxxer.hikari.pool.HikariProxyConnection;
 import org.h2.jdbc.JdbcConnection;
 import org.junit.After;
 import org.junit.Test;
@@ -31,6 +31,7 @@ import org.junit.runner.RunWith;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.lang.reflect.Proxy;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
@@ -74,7 +75,9 @@ public class JdbcDataConnectionTest {
     public void tearDown() throws Exception {
         close(connection1);
         close(connection2);
-        jdbcDataConnection.release();
+        if (jdbcDataConnection != null) {
+            jdbcDataConnection.release();
+        }
         assertEventuallyNoHikariThreads(TEST_NAME);
         executeJdbc(JDBC_URL_SHARED, "shutdown");
     }
@@ -122,6 +125,7 @@ public class JdbcDataConnectionTest {
         Connection unwrapped1 = connection1.unwrap(Connection.class);
 
         connection1.close();
+        connection1 = null;
 
         // used maximumPoolSize above, after closing it should return same connection
         connection2 = jdbcDataConnection.getConnection();
@@ -137,15 +141,43 @@ public class JdbcDataConnectionTest {
         HikariDataSource pool = jdbcDataConnection.pooledDataSource();
 
         assertPoolNameEndsWith(pool, TEST_NAME);
+        assertThat(pool.getJdbcUrl()).isEqualTo(JDBC_URL_SHARED);
     }
 
     @Test
-    public void should_return_hikari_connection_when_shared() throws Exception {
+    public void should_return_standard_lifecycle_proxy_when_shared() throws Exception {
         jdbcDataConnection = new JdbcDataConnection(SHARED_DATA_CONNECTION_CONFIG);
 
-        try (ConnectionDelegate connection = (ConnectionDelegate) jdbcDataConnection.getConnection()) {
-            assertThat(connection.getDelegate()).isInstanceOf(HikariProxyConnection.class);
+        try (Connection connection = jdbcDataConnection.getConnection()) {
+            assertThat(Proxy.isProxyClass(connection.getClass())).isTrue();
+            assertThat(connection.isWrapperFor(Connection.class)).isTrue();
+            assertThat(connection.unwrap(Connection.class)).isNotNull();
         }
+    }
+
+    @Test
+    public void shared_connection_preserves_legitimate_prepared_statements() throws Exception {
+        jdbcDataConnection = new JdbcDataConnection(SHARED_DATA_CONNECTION_CONFIG);
+
+        try (Connection connection = jdbcDataConnection.getConnection();
+             var statement = connection.prepareStatement("SELECT ?")) {
+            statement.setInt(1, 7);
+            try (var result = statement.executeQuery()) {
+                assertThat(result.next()).isTrue();
+                assertThat(result.getInt(1)).isEqualTo(7);
+            }
+        }
+    }
+
+    @Test
+    public void closing_shared_connection_is_idempotent() throws Exception {
+        jdbcDataConnection = new JdbcDataConnection(SHARED_DATA_CONNECTION_CONFIG);
+        Connection connection = jdbcDataConnection.getConnection();
+
+        connection.close();
+        connection.close();
+
+        assertThat(connection.isClosed()).isTrue();
     }
 
     @Test
@@ -170,6 +202,7 @@ public class JdbcDataConnectionTest {
         assertThat(pool.isClosed())
                 .describedAs("Connection pool should have been closed")
                 .isTrue();
+        jdbcDataConnection = null;
     }
 
     /**
@@ -192,6 +225,7 @@ public class JdbcDataConnectionTest {
         assertThat(pool.isClosed())
                 .describedAs("Connection pool should have been closed")
                 .isTrue();
+        jdbcDataConnection = null;
     }
 
     @Test
@@ -202,8 +236,44 @@ public class JdbcDataConnectionTest {
                 .setShared(true));
 
         assertThatThrownBy(() -> jdbcDataConnection.getConnection())
-                .hasRootCauseInstanceOf(SQLException.class)
-                .hasRootCauseMessage("No suitable driver");
+                .hasRootCauseInstanceOf(HazelcastException.class)
+                .hasRootCauseMessage("Invalid JDBC URL for data connection '" + TEST_NAME + "'");
+    }
+
+    @Test
+    public void should_reject_unallowlisted_url_before_single_use_connection_attempt() {
+        DataConnectionConfig config = new DataConnectionConfig()
+                .setName(TEST_NAME)
+                .setProperty("jdbcUrl", "jdbc:postgresql://169.254.169.254:5432/secrets")
+                .setShared(false);
+
+        assertThatThrownBy(() -> new JdbcDataConnection(config))
+                .isInstanceOf(HazelcastException.class)
+                .hasMessageContaining("not allowed");
+    }
+
+    @Test
+    public void should_reject_unallowlisted_url_before_pooled_connection_attempt() {
+        DataConnectionConfig config = new DataConnectionConfig()
+                .setName(TEST_NAME)
+                .setProperty("jdbcUrl", "jdbc:postgresql://169.254.169.254:5432/secrets")
+                .setShared(true);
+        jdbcDataConnection = new JdbcDataConnection(config);
+
+        assertThatThrownBy(() -> jdbcDataConnection.getConnection())
+                .hasRootCauseInstanceOf(HazelcastException.class)
+                .hasRootCauseMessage("JDBC URL is not allowed for data connection '" + TEST_NAME
+                        + "'. Add the exact URL to an indexed hazelcast.jdbc.allowed-url.<n> system property");
+    }
+
+    @Test
+    public void should_reject_hikari_endpoint_override() {
+        DataConnectionConfig config = new DataConnectionConfig(SINGLE_USE_DATA_CONNECTION_CONFIG)
+                .setProperty("hikari.dataSource.serverName", "169.254.169.254");
+
+        assertThatThrownBy(() -> new JdbcDataConnection(config))
+                .isInstanceOf(HazelcastException.class)
+                .hasMessageContaining("endpoint override");
     }
 
     @Test

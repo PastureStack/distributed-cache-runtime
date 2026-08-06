@@ -63,6 +63,17 @@ public class PhoneHomeDifferentConfigTest extends HazelcastTestSupport {
     }
 
     @Test
+    public void testScheduling_isDisabledByDefault() {
+        HazelcastInstance hz = createHazelcastInstance(new Config());
+        Node node = getNode(hz);
+
+        PhoneHome phoneHome = new PhoneHome(node);
+
+        phoneHome.start();
+        assertNull(phoneHome.phoneHomeFuture);
+    }
+
+    @Test
     public void testScheduling_whenPhoneHomeIsDisabled() {
         Config config = new Config()
                 .setProperty(ClusterProperty.PHONE_HOME_ENABLED.getName(), "false");

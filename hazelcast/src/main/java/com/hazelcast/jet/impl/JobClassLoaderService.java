@@ -32,11 +32,8 @@ import com.hazelcast.spi.properties.ClusterProperty;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Collections;
@@ -49,6 +46,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.Util.idToString;
+import static com.hazelcast.internal.util.SecureFileAccess.requireChildRegularFile;
+import static com.hazelcast.internal.util.SecureFileAccess.requireExistingDirectory;
 import static java.util.Collections.unmodifiableMap;
 
 public class JobClassLoaderService {
@@ -164,15 +163,23 @@ public class JobClassLoaderService {
         logger.fine("Create processor classloader map for job %s", idToString(jobId));
         String customLibDir = nodeEngine.getProperties().getString(ClusterProperty.PROCESSOR_CUSTOM_LIB_DIR);
         Map<String, ClassLoader> classLoaderMap = new HashMap<>();
+        if (jobConfig.getCustomClassPaths().isEmpty()) {
+            return unmodifiableMap(classLoaderMap);
+        }
+        final Path trustedCustomLibDirectory;
+        try {
+            trustedCustomLibDirectory = requireExistingDirectory(customLibDir, "processor custom library directory");
+        } catch (IOException e) {
+            throw new JetException("Invalid processor custom library directory", e);
+        }
         for (Entry<String, List<String>> entry : jobConfig.getCustomClassPaths().entrySet()) {
             List<URL> list = entry.getValue().stream()
                                   .map(jar -> {
                                       try {
-                                          assert Files.exists(Paths.get(customLibDir))
-                                                  : "Directory " + customLibDir + " does not exist";
-                                          Path path = Paths.get(customLibDir, jar);
+                                          Path path = requireChildRegularFile(
+                                                  trustedCustomLibDirectory, jar, "processor custom library");
                                           return path.toUri().toURL();
-                                      } catch (MalformedURLException e) {
+                                      } catch (IOException e) {
                                           throw new JetException(e);
                                       }
                                   })

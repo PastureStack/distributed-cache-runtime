@@ -20,6 +20,7 @@ package com.hazelcast.internal.util.concurrent;
 import java.util.concurrent.locks.LockSupport;
 
 import static com.hazelcast.internal.util.Preconditions.checkNotNegative;
+import static com.hazelcast.internal.util.Preconditions.checkTrue;
 import static java.lang.Long.numberOfLeadingZeros;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.min;
@@ -58,10 +59,12 @@ public class BackoffIdleStrategy implements IdleStrategy {
         checkNotNegative(maxSpins, "maxSpins must be positive or zero");
         checkNotNegative(maxYields, "maxYields must be positive or zero");
         checkNotNegative(minParkPeriodNs, "minParkPeriodNs must be positive or zero");
-        checkNotNegative(maxParkPeriodNs - minParkPeriodNs,
+        checkTrue(maxParkPeriodNs >= minParkPeriodNs,
                 "maxParkPeriodNs must be greater than or equal to minParkPeriodNs");
+        checkTrue(maxSpins <= Long.MAX_VALUE - maxYields,
+                "maxSpins and maxYields exceed the supported combined range");
         this.yieldThreshold = maxSpins;
-        this.parkThreshold = maxSpins + maxYields;
+        this.parkThreshold = Math.addExact(maxSpins, maxYields);
         this.minParkPeriodNs = minParkPeriodNs;
         this.maxParkPeriodNs = maxParkPeriodNs;
         this.maxShift = numberOfLeadingZeros(minParkPeriodNs) - numberOfLeadingZeros(maxParkPeriodNs);
@@ -109,4 +112,3 @@ public class BackoffIdleStrategy implements IdleStrategy {
         return new BackoffIdleStrategy(maxSpins, maxYields, minParkPeriodNs, maxParkNanos);
     }
 }
-

@@ -161,19 +161,19 @@ class UnsafeObjectDataOutput extends ByteArrayObjectDataOutput {
     @Override
     public void writeShort(final int v) throws IOException {
         ensureAvailable(SHORT_SIZE_IN_BYTES);
-        MEM.putShort(buffer, ARRAY_BYTE_BASE_OFFSET + pos, (short) v);
+        MEM.putShort(buffer, ARRAY_BYTE_BASE_OFFSET + pos, lowOrderShort(v));
         pos += SHORT_SIZE_IN_BYTES;
     }
 
     @Override
     public void writeShort(int position, final int v) throws IOException {
         checkAvailable(position, SHORT_SIZE_IN_BYTES);
-        MEM.putShort(buffer, ARRAY_BYTE_BASE_OFFSET + position, (short) v);
+        MEM.putShort(buffer, ARRAY_BYTE_BASE_OFFSET + position, lowOrderShort(v));
     }
 
     @Override
     public void writeShort(int v, ByteOrder byteOrder) throws IOException {
-        short s = (short) v;
+        short s = lowOrderShort(v);
         if (byteOrder != ByteOrder.nativeOrder()) {
             writeShort(Short.reverseBytes(s));
         } else {
@@ -183,12 +183,16 @@ class UnsafeObjectDataOutput extends ByteArrayObjectDataOutput {
 
     @Override
     public void writeShort(int position, int v, ByteOrder byteOrder) throws IOException {
-        short s = (short) v;
+        short s = lowOrderShort(v);
         if (byteOrder != ByteOrder.nativeOrder()) {
             writeShort(position, Short.reverseBytes(s));
         } else {
             writeShort(position, v);
         }
+    }
+
+    private static short lowOrderShort(int value) {
+        return (short) (value & Character.MAX_VALUE);
     }
 
     @Override

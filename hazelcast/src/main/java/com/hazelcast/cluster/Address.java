@@ -46,8 +46,6 @@ public final class Address implements IdentifiedDataSerializable {
     private String scopeId;
     private boolean hostSet;
 
-    private transient int hashCode;
-
     public Address() {
     }
 
@@ -82,7 +80,6 @@ public final class Address implements IdentifiedDataSerializable {
         }
         this.port = port;
         hostSet = !AddressUtil.isIpAddress(host);
-        this.hashCode = hashCodeInternal();
     }
 
     public Address(Address address) {
@@ -91,7 +88,6 @@ public final class Address implements IdentifiedDataSerializable {
         this.type = address.type;
         this.scopeId = address.scopeId;
         this.hostSet = address.hostSet;
-        this.hashCode = hashCodeInternal();
     }
 
     public String getHost() {
@@ -155,7 +151,6 @@ public final class Address implements IdentifiedDataSerializable {
         port = in.readInt();
         type = in.readByte();
         host = in.readString();
-        hashCode = hashCodeInternal();
     }
 
     @Override
@@ -167,19 +162,13 @@ public final class Address implements IdentifiedDataSerializable {
             return false;
         }
         final Address address = (Address) o;
-        return hashCode == address.hashCode && port == address.port && this.host.equals(address.host);
+        return port == address.port && this.host.equals(address.host);
     }
 
     @Override
-    public int hashCode() {
-        return hashCode;
-    }
-
     @SuppressWarnings("checkstyle:magicnumber")
-    private int hashCodeInternal() {
-        int result = port;
-        result = 31 * result + host.hashCode();
-        return result;
+    public int hashCode() {
+        return 31 * port + host.hashCode();
     }
 
     @Override
@@ -211,7 +200,6 @@ public final class Address implements IdentifiedDataSerializable {
         Address address = new Address();
         address.host = host;
         address.port = port;
-        address.hashCode = address.hashCodeInternal();
         return address;
     }
 }

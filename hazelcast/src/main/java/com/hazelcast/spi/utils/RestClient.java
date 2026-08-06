@@ -64,6 +64,8 @@ public final class RestClient {
     public static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = -1;
 
     private static final String WATCH_FORMAT = "watch=1&resourceVersion=%s";
+    private static final int HTTP_PORT = 80;
+    private static final int HTTPS_PORT = 443;
 
     /**
      * Cache HttpClients for reuse between RestClient instances where possible
@@ -132,6 +134,52 @@ public final class RestClient {
 
     public static RestClient createWithSSL(String url, String caCertificate, int connectTimeoutSeconds) {
         return new RestClient(url, caCertificate, connectTimeoutSeconds);
+    }
+
+    public static RestClient createForOrigin(String url, URI allowedOrigin, int connectTimeoutSeconds) {
+        return new RestClient(requireSameOrigin(url, allowedOrigin).toString(), null, connectTimeoutSeconds);
+    }
+
+    public static RestClient createWithSSLForOrigin(
+            String url, URI allowedOrigin, String caCertificate, int connectTimeoutSeconds) {
+        return new RestClient(requireSameOrigin(url, allowedOrigin).toString(), caCertificate, connectTimeoutSeconds);
+    }
+
+    private static URI requireSameOrigin(String url, URI allowedOrigin) {
+        URI requestUri;
+        try {
+            requestUri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            throw new RestClientException("Invalid REST endpoint", e);
+        }
+
+        if (isSafeEndpoint(requestUri) && sameOrigin(allowedOrigin, requestUri)) {
+            return requestUri;
+        }
+        throw new RestClientException("REST endpoint is outside the configured origin",
+                new IllegalArgumentException("Cross-origin endpoint rejected"));
+    }
+
+    private static boolean isSafeEndpoint(URI requestUri) {
+        return requestUri.getHost() != null
+                && requestUri.getRawUserInfo() == null
+                && requestUri.getRawFragment() == null
+                && requestUri.equals(requestUri.normalize());
+    }
+
+    private static boolean sameOrigin(URI allowedOrigin, URI requestUri) {
+        return allowedOrigin != null
+                && allowedOrigin.getHost().equals(requestUri.getHost())
+                && allowedOrigin.getScheme().equalsIgnoreCase(requestUri.getScheme())
+                && effectivePort(allowedOrigin) == effectivePort(requestUri);
+    }
+
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        return "http".equalsIgnoreCase(uri.getScheme()) ? HTTP_PORT
+                : "https".equalsIgnoreCase(uri.getScheme()) ? HTTPS_PORT : -1;
     }
 
     public RestClient withHeaders(Map<String, String> headers) {

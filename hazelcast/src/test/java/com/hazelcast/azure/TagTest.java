@@ -59,4 +59,18 @@ public class TagTest {
         // then
         // throw exception
     }
+
+    @Test(expected = InvalidConfigurationException.class)
+    public void tagWithMultipleSeparatorsIsRejected() {
+        new Tag("key=value=unexpected");
+    }
+
+    @Test
+    public void longWhitespaceIsParsedWithoutRegexBacktracking() {
+        String whitespace = " ".repeat(50_000);
+        Tag result = new Tag(whitespace + "key" + whitespace + "=" + whitespace + "value" + whitespace);
+
+        assertEquals("key", result.getKey());
+        assertEquals("value", result.getValue());
+    }
 }

@@ -29,6 +29,7 @@ import com.hazelcast.core.ManagedContext;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.config.CacheSimpleConfigReadOnly;
 import com.hazelcast.internal.config.CardinalityEstimatorConfigReadOnly;
+import com.hazelcast.internal.config.ConfigLoader;
 import com.hazelcast.internal.config.ConfigUtils;
 import com.hazelcast.internal.config.DataConnectionConfigReadOnly;
 import com.hazelcast.internal.config.DataPersistenceAndHotRestartMerger;
@@ -365,7 +366,7 @@ public class Config {
         InputStream stream;
         URL url = classLoader.getResource(resource);
         try {
-            stream = url != null ? url.openStream() : null;
+            stream = url != null ? ConfigLoader.openConfig(url) : null;
         } catch (IOException e) {
             stream = null;
         }

@@ -68,4 +68,14 @@ public class BackoffIdleStrategyTest {
         assertEquals(3, strat.parkTime(1));
         assertEquals(3, strat.parkTime(2));
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void thresholdsThatOverflowAreRejected() {
+        new BackoffIdleStrategy(Long.MAX_VALUE, 1, 1, 1);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void parkRangeThatWouldUnderflowIsRejected() {
+        new BackoffIdleStrategy(0, 0, Long.MAX_VALUE, 0);
+    }
 }

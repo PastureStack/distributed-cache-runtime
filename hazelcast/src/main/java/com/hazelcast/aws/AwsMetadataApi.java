@@ -23,8 +23,10 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.utils.RestClient;
 import com.hazelcast.spi.exception.RestClientException;
 
-import java.util.Optional;
+import java.net.URI;
 import java.time.Instant;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static com.hazelcast.aws.AwsRequestUtils.createRestClient;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -40,10 +42,14 @@ import static java.net.HttpURLConnection.HTTP_OK;
 class AwsMetadataApi {
     private static final ILogger LOGGER = Logger.getLogger(AwsMetadataApi.class);
     private static final String EC2_METADATA_ENDPOINT = "http://169.254.169.254/latest/meta-data";
-    private static final String ECS_IAM_ROLE_METADATA_ENDPOINT = "http://169.254.170.2" + System.getenv(
-        "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI");
+    private static final String ECS_METADATA_HOST = "169.254.170.2";
+    private static final String ECS_METADATA_ORIGIN = "http://" + ECS_METADATA_HOST;
+    private static final int HTTP_DEFAULT_PORT = 80;
     private static final String EC2_METADATA_TOKEN_ENDPOINT = "http://169.254.169.254/latest/api/token";
-    private static final String ECS_TASK_METADATA_ENDPOINT = System.getenv("ECS_CONTAINER_METADATA_URI");
+    private static final Pattern ECS_TASK_METADATA_PATH = Pattern.compile(
+            "/v[34]/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*");
+    private static final Pattern ECS_CREDENTIALS_PATH = Pattern.compile(
+            "/v2/credentials/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*");
 
     private static final String SECURITY_CREDENTIALS_URI = "/iam/security-credentials/";
     private static final long METADATA_TOKEN_TTL_SECONDS = 21600;
@@ -60,8 +66,10 @@ class AwsMetadataApi {
     AwsMetadataApi(AwsConfig awsConfig) {
         this.ec2MetadataEndpoint = EC2_METADATA_ENDPOINT;
         this.ec2MetadataTokenEndpoint = EC2_METADATA_TOKEN_ENDPOINT;
-        this.ecsIamRoleEndpoint = ECS_IAM_ROLE_METADATA_ENDPOINT;
-        this.ecsTaskMetadataEndpoint = ECS_TASK_METADATA_ENDPOINT;
+        this.ecsIamRoleEndpoint = ecsIamRoleEndpoint(System.getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"));
+        this.ecsTaskMetadataEndpoint = validateEcsTaskMetadataEndpoint(firstNonBlank(
+                System.getenv("ECS_CONTAINER_METADATA_URI_V4"),
+                System.getenv("ECS_CONTAINER_METADATA_URI")));
         this.awsConfig = awsConfig;
     }
 
@@ -131,6 +139,9 @@ class AwsMetadataApi {
     }
 
     private JsonObject getTaskMetadata() {
+        if (ecsTaskMetadataEndpoint == null) {
+            throw new IllegalStateException("The ECS task metadata endpoint is not available");
+        }
         String uri = ecsTaskMetadataEndpoint.concat("/task");
         String response = createRestClient(uri, awsConfig).get().getBody();
         return Json.parse(response).asObject();
@@ -148,8 +159,77 @@ class AwsMetadataApi {
     }
 
     AwsCredentials credentialsEcs() {
+        if (ecsIamRoleEndpoint == null) {
+            throw new IllegalStateException("The ECS credentials endpoint is not available");
+        }
         String response = createRestClient(ecsIamRoleEndpoint, awsConfig).get().getBody();
         return parseCredentials(response);
+    }
+
+    static String validateEcsTaskMetadataEndpoint(String endpoint) {
+        if (endpoint == null || endpoint.isBlank()) {
+            return null;
+        }
+        if (!endpoint.equals(endpoint.trim())) {
+            throw new IllegalArgumentException("ECS task metadata endpoint contains surrounding whitespace");
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(endpoint);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid ECS task metadata endpoint", e);
+        }
+
+        if (!isTrustedEcsMetadataOrigin(uri) || !isTrustedEcsMetadataPath(uri)) {
+            throw new IllegalArgumentException("Untrusted ECS task metadata endpoint");
+        }
+        return uri.toASCIIString();
+    }
+
+    private static boolean isTrustedEcsMetadataOrigin(URI uri) {
+        if (!"http".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+        if (!ECS_METADATA_HOST.equals(uri.getHost())) {
+            return false;
+        }
+        return uri.getPort() == -1 || uri.getPort() == HTTP_DEFAULT_PORT;
+    }
+
+    private static boolean isTrustedEcsMetadataPath(URI uri) {
+        if (uri.getRawUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null) {
+            return false;
+        }
+        String rawPath = uri.getRawPath();
+        return rawPath != null
+                && rawPath.equals(uri.normalize().getRawPath())
+                && ECS_TASK_METADATA_PATH.matcher(rawPath).matches();
+    }
+
+    static String ecsIamRoleEndpoint(String relativeUri) {
+        if (relativeUri == null || relativeUri.isBlank()) {
+            return null;
+        }
+        if (!isTrustedEcsCredentialsPath(relativeUri)) {
+            throw new IllegalArgumentException("Untrusted ECS credentials path");
+        }
+        return ECS_METADATA_ORIGIN + relativeUri;
+    }
+
+    private static boolean isTrustedEcsCredentialsPath(String relativeUri) {
+        if (!relativeUri.equals(relativeUri.trim()) || !ECS_CREDENTIALS_PATH.matcher(relativeUri).matches()) {
+            return false;
+        }
+        URI uri = URI.create(relativeUri);
+        return uri.getRawAuthority() == null
+                && uri.getRawQuery() == null
+                && uri.getRawFragment() == null
+                && relativeUri.equals(uri.normalize().getRawPath());
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred != null && !preferred.isBlank() ? preferred : fallback;
     }
 
     private static AwsCredentials parseCredentials(String response) {

@@ -215,6 +215,7 @@ public class JobUploadStatusTest {
             Files.createDirectories(path);
             String uploadPath = path.toAbsolutePath().toString();
             when(jobMetaDataParameterObject.getUploadDirectoryPath()).thenReturn(uploadPath);
+            when(jobMetaDataParameterObject.getFileName()).thenReturn("job-client");
             jarPath = jobUploadStatus.createJarPath();
             assertTrue(Files.exists(jarPath));
         } finally {
@@ -222,5 +223,13 @@ public class JobUploadStatusTest {
                 Files.delete(jarPath);
             }
         }
+    }
+
+    @Test
+    public void testGetJarPathRejectsUnsafePrefix() {
+        when(jobMetaDataParameterObject.getUploadDirectoryPath()).thenReturn(Paths.get("target").toAbsolutePath().toString());
+        when(jobMetaDataParameterObject.getFileName()).thenReturn("../job");
+
+        Assert.assertThrows(IOException.class, () -> jobUploadStatus.createJarPath());
     }
 }

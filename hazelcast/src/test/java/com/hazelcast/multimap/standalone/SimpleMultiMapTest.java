@@ -63,7 +63,7 @@ public final class SimpleMultiMapTest {
         for (int i = 0; i < threadCount; i++) {
             es.execute(() -> {
                 while (true) {
-                    int key = (int) (RANDOM.nextFloat() * entryCount);
+                    int key = (int) (RANDOM.nextFloat() * (long) entryCount);
                     int operation = ((int) (RANDOM.nextFloat() * 100));
                     if (operation < getPercentage) {
                         map.get(String.valueOf(key));
@@ -137,7 +137,16 @@ public final class SimpleMultiMapTest {
         LOGGER.info("        Value Size: " + valueSize);
         LOGGER.info("    Get Percentage: " + getPercentage);
         LOGGER.info("    Put Percentage: " + putPercentage);
-        LOGGER.info(" Remove Percentage: " + (100 - (putPercentage + getPercentage)));
+        validateArguments();
+        LOGGER.info(" Remove Percentage: " + (100 - getPercentage - putPercentage));
         return load;
+    }
+
+    private static void validateArguments() {
+        if (threadCount < 1 || entryCount < 1 || valueSize < 0
+                || getPercentage < 0 || putPercentage < 0
+                || getPercentage > 100 || putPercentage > 100 - getPercentage) {
+            throw new IllegalArgumentException("Counts must be positive and operation percentages must total at most 100");
+        }
     }
 }

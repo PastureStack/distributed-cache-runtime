@@ -36,6 +36,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -269,5 +270,52 @@ public class AwsMetadataApiTest {
 
         // then
         assertEquals(token, result);
+    }
+
+    @Test
+    public void acceptsCanonicalEcsTaskMetadataEndpoints() {
+        assertEquals("http://169.254.170.2/v3/task-id",
+                AwsMetadataApi.validateEcsTaskMetadataEndpoint("http://169.254.170.2/v3/task-id"));
+        assertEquals("http://169.254.170.2/v4/task-id",
+                AwsMetadataApi.validateEcsTaskMetadataEndpoint("http://169.254.170.2/v4/task-id"));
+        assertNull(AwsMetadataApi.validateEcsTaskMetadataEndpoint(null));
+    }
+
+    @Test
+    public void rejectsUntrustedEcsTaskMetadataEndpoints() {
+        String[] endpoints = {
+                "http://127.0.0.1/v4/task-id",
+                "http://169.254.169.254/latest/meta-data",
+                "https://169.254.170.2/v4/task-id",
+                "http://169.254.170.2:8080/v4/task-id",
+                "http://user@169.254.170.2/v4/task-id",
+                "http://169.254.170.2/v4/task-id?target=internal",
+                "http://169.254.170.2/v4/task-id#fragment",
+                "http://169.254.170.2/v4/../latest/meta-data",
+                " http://169.254.170.2/v4/task-id"
+        };
+
+        for (String endpoint : endpoints) {
+            assertThrows(endpoint, IllegalArgumentException.class,
+                    () -> AwsMetadataApi.validateEcsTaskMetadataEndpoint(endpoint));
+        }
+    }
+
+    @Test
+    public void acceptsOnlyCanonicalEcsCredentialsPaths() {
+        assertEquals("http://169.254.170.2/v2/credentials/credential-id",
+                AwsMetadataApi.ecsIamRoleEndpoint("/v2/credentials/credential-id"));
+        assertNull(AwsMetadataApi.ecsIamRoleEndpoint(null));
+
+        String[] paths = {
+                "http://127.0.0.1/credentials",
+                "//127.0.0.1/credentials",
+                "/v2/credentials/../metadata",
+                "/v3/credentials/credential-id",
+                "/v2/credentials/credential-id?target=internal"
+        };
+        for (String path : paths) {
+            assertThrows(path, IllegalArgumentException.class, () -> AwsMetadataApi.ecsIamRoleEndpoint(path));
+        }
     }
 }

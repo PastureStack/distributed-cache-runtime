@@ -103,6 +103,9 @@ public class PartitionStateManagerImpl implements PartitionStateManager {
 
         this.partitionService = partitionService;
         this.partitionCount = partitionService.getPartitionCount();
+        if (partitionCount <= 0 || partitionCount > Integer.MAX_VALUE / Integer.BYTES) {
+            throw new IllegalArgumentException("Partition count is outside the supported range");
+        }
         this.partitions = new InternalPartitionImpl[partitionCount];
         this.stampCalculationBuffer = new byte[partitionCount * Integer.BYTES];
 

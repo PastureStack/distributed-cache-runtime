@@ -272,11 +272,15 @@ class BasicRecordStoreLoader implements RecordStoreLoader {
         if (list == null || list.isEmpty()) {
             return null;
         }
-        int start = pageNumber * pageSize;
-        int end = Math.min(start + pageSize, list.size());
-        if (start >= end) {
+        if (pageSize <= 0 || pageNumber < 0) {
+            throw new IllegalArgumentException("Page size must be positive and page number must be non-negative");
+        }
+        long startLong = (long) pageNumber * pageSize;
+        if (startLong >= list.size()) {
             return null;
         }
+        int start = Math.toIntExact(startLong);
+        int end = Math.toIntExact(Math.min(startLong + pageSize, list.size()));
         return list.subList(start, end);
     }
 

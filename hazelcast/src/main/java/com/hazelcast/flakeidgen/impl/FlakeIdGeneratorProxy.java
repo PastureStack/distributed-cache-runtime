@@ -212,18 +212,22 @@ public class FlakeIdGeneratorProxy
             if (localNodeId == NODE_ID_OUT_OF_RANGE) {
                 return localNodeId;
             }
-            int newNodeId = getNodeEngine().getClusterService().getMemberListJoinVersion();
+            long newNodeId = getNodeEngine().getClusterService().getMemberListJoinVersion();
             assert newNodeId >= 0 : "newNodeId=" + newNodeId;
-            newNodeId += nodeIdOffset;
+            try {
+                newNodeId = Math.addExact(newNodeId, nodeIdOffset);
+            } catch (ArithmeticException ignored) {
+                newNodeId = Long.MAX_VALUE;
+            }
             if (newNodeId != localNodeId) {
-                localNodeId = newNodeId;
-
                 // If our node ID is out of range, assign NODE_ID_OUT_OF_RANGE to nodeId
-                if ((localNodeId & -1 << bitsNodeId) != 0) {
+                if (newNodeId > Integer.MAX_VALUE || (newNodeId & -1L << bitsNodeId) != 0) {
                     outOfRangeMembers.add(getNodeEngine().getClusterService().getLocalMember().getUuid());
-                    logger.severe("Node ID is out of range (" + localNodeId
+                    logger.severe("Node ID is out of range (" + newNodeId
                             + "), this member won't be able to generate IDs. Cluster restart is recommended.");
                     localNodeId = NODE_ID_OUT_OF_RANGE;
+                } else {
+                    localNodeId = Math.toIntExact(newNodeId);
                 }
 
                 // we ignore possible double initialization

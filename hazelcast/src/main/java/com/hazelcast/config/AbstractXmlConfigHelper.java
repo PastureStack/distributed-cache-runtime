@@ -40,7 +40,6 @@ import javax.xml.validation.Validator;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.net.URI;
 import java.util.ArrayList;
 
 import static com.hazelcast.internal.nio.IOUtil.closeResource;
@@ -102,6 +101,11 @@ public abstract class AbstractXmlConfigHelper extends AbstractConfigBuilder {
         }
 
         // include hazelcast schema
+        if (hazelcastSchemaLocation.contains("..")
+                || hazelcastSchemaLocation.startsWith("/")
+                || hazelcastSchemaLocation.contains("\\")) {
+            throw new InvalidConfigurationException("Invalid bundled schema location");
+        }
         schemas.add(new StreamSource(getClass().getClassLoader().getResourceAsStream(hazelcastSchemaLocation)));
 
         // document to InputStream conversion
@@ -130,17 +134,35 @@ public abstract class AbstractXmlConfigHelper extends AbstractConfigBuilder {
     }
 
     protected InputStream loadSchemaFile(String schemaLocation) {
-        // is resource file
-        InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(schemaLocation);
-        // is URL
+        if (!isSafeClasspathSchemaLocation(schemaLocation)) {
+            throw new InvalidConfigurationException("External xsd schemas are not allowed");
+        }
+
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        InputStream inputStream = contextClassLoader == null
+                ? null : contextClassLoader.getResourceAsStream(schemaLocation);
         if (inputStream == null) {
-            try {
-                inputStream = URI.create(schemaLocation).toURL().openStream();
-            } catch (Exception e) {
-                throw new InvalidConfigurationException("Your xsd schema couldn't be loaded");
-            }
+            inputStream = getClass().getClassLoader().getResourceAsStream(schemaLocation);
+        }
+        if (inputStream == null) {
+            throw new InvalidConfigurationException("Your xsd schema couldn't be loaded");
         }
         return inputStream;
+    }
+
+    private static boolean isSafeClasspathSchemaLocation(String schemaLocation) {
+        if (schemaLocation == null || schemaLocation.isBlank()
+                || !schemaLocation.equals(schemaLocation.trim())
+                || schemaLocation.startsWith("/") || schemaLocation.contains("\\")) {
+            return false;
+        }
+        for (String segment : schemaLocation.split("/", -1)) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)
+                    || segment.indexOf(':') >= 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @PrivateApi

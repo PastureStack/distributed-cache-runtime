@@ -71,6 +71,7 @@ import static com.hazelcast.sql.impl.SqlErrorCode.TOPOLOGY_CHANGE;
  */
 public class SqlClientService implements SqlService {
     private static final int MAX_FAST_INVOCATION_COUNT = 5;
+    private static final int MAX_PARTITION_CACHE_THRESHOLD_INCREMENT = 50;
 
     @SuppressWarnings("checkstyle:VisibilityModifier")
     public final ReadOptimizedLruCache<String, Integer> partitionArgumentIndexCache;
@@ -98,7 +99,13 @@ public class SqlClientService implements SqlService {
 
         this.isAllMembersRouting = client.getConnectionManager().getRoutingMode() == RoutingMode.ALL_MEMBERS;
         final int partitionArgCacheSize = client.getProperties().getInteger(PARTITION_ARGUMENT_CACHE_SIZE);
-        final int partitionArgCacheThreshold = partitionArgCacheSize + Math.min(partitionArgCacheSize / 10, 50);
+        if (partitionArgCacheSize < 0
+                || partitionArgCacheSize > Integer.MAX_VALUE - MAX_PARTITION_CACHE_THRESHOLD_INCREMENT) {
+            throw new IllegalArgumentException("Partition argument cache size is outside the supported range");
+        }
+        final int partitionArgCacheThreshold = Math.addExact(
+                partitionArgCacheSize,
+                Math.min(partitionArgCacheSize / 10, MAX_PARTITION_CACHE_THRESHOLD_INCREMENT));
         this.partitionArgumentIndexCache = new ReadOptimizedLruCache<>(partitionArgCacheSize, partitionArgCacheThreshold);
     }
 

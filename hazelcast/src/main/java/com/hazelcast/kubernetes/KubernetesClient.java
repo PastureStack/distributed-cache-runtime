@@ -36,6 +36,7 @@ import com.hazelcast.spi.utils.RetryUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -79,6 +80,7 @@ class KubernetesClient {
     final StsMonitorThread stsMonitorThread;
     private final String namespace;
     private final String kubernetesMaster;
+    private final URI kubernetesMasterOrigin;
     private final String caCertificate;
     private final int retries;
     private final KubernetesApiProvider apiProvider;
@@ -113,6 +115,7 @@ class KubernetesClient {
                      @Nullable KubernetesApiProvider apiProvider) {
         this.namespace = namespace;
         this.kubernetesMaster = kubernetesMaster;
+        this.kubernetesMasterOrigin = URI.create(kubernetesMaster);
         this.tokenProvider = tokenProvider;
         this.caCertificate = caCertificate;
         this.retries = retries;
@@ -421,8 +424,10 @@ class KubernetesClient {
      */
     private JsonObject callGet(final String urlString) {
         return RetryUtils.retry(() ->
-                Json.parse((caCertificate == null ? RestClient.create(urlString, CONNECTION_TIMEOUT_SECONDS)
-                                : RestClient.createWithSSL(urlString, caCertificate, CONNECTION_TIMEOUT_SECONDS))
+                Json.parse((caCertificate == null
+                        ? RestClient.createForOrigin(urlString, kubernetesMasterOrigin, CONNECTION_TIMEOUT_SECONDS)
+                        : RestClient.createWithSSLForOrigin(urlString, kubernetesMasterOrigin,
+                                caCertificate, CONNECTION_TIMEOUT_SECONDS))
                         .withHeader("Authorization", "Bearer " + tokenProvider.getToken())
                         .withRequestTimeoutSeconds(READ_TIMEOUT_SECONDS)
                         .get()
@@ -954,8 +959,11 @@ class KubernetesClient {
          */
         @Nonnull
         WatchResponse sendWatchRequest() throws RestClientException {
-            RestClient restClient = (caCertificate == null ? RestClient.create(stsUrlString)
-                            : RestClient.createWithSSL(stsUrlString, caCertificate))
+            RestClient restClient = (caCertificate == null
+                    ? RestClient.createForOrigin(stsUrlString, kubernetesMasterOrigin,
+                            RestClient.DEFAULT_CONNECT_TIMEOUT_SECONDS)
+                    : RestClient.createWithSSLForOrigin(stsUrlString, kubernetesMasterOrigin,
+                            caCertificate, RestClient.DEFAULT_CONNECT_TIMEOUT_SECONDS))
                     .withHeader("Authorization", "Bearer " + tokenProvider.getToken());
             return restClient.watch(latestRuntimeContext.getResourceVersion());
         }

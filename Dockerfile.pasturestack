@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.7
+
+FROM eclipse-temurin@sha256:c2b7ea21649875fb9052237ac4e3cd4ef63968a2a389a0a1b1a72a5e53e5c93f AS build
+
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/root/.m2 scripts/pasturestack-build-runtime
+
+FROM scratch
+
+ARG VCS_REF
+LABEL org.opencontainers.image.title="PastureStack Distributed Cache Runtime" \
+      org.opencontainers.image.description="PastureStack 5.7.2 runtime based on Hazelcast 5.7.0 with reviewed security updates" \
+      org.opencontainers.image.source="https://github.com/PastureStack/distributed-cache-runtime" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      org.opencontainers.image.licenses="Apache-2.0 OR LicenseRef-Hazelcast-Community" \
+      org.opencontainers.image.vendor="PastureStack"
+
+COPY --from=build /src/dist/hazelcast-5.7.2.jar /opt/pasturestack/vendor/hazelcast-5.7.2.jar
+COPY --from=build /src/dist/hazelcast-5.7.2.jar.sha256 /opt/pasturestack/vendor/hazelcast-5.7.2.jar.sha256
+COPY LICENSE NOTICE ORIGIN.md SECURITY-MAINTENANCE.md /opt/pasturestack/licenses/

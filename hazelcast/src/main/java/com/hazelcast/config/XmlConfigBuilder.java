@@ -16,6 +16,7 @@
 
 package com.hazelcast.config;
 
+import com.hazelcast.internal.config.ConfigLoader;
 import com.hazelcast.internal.config.ConfigSections;
 import com.hazelcast.internal.config.MemberDomConfigProcessor;
 import com.hazelcast.internal.config.XmlConfigLocator;
@@ -85,7 +86,7 @@ public class XmlConfigBuilder extends AbstractXmlConfigBuilder implements Config
      */
     public XmlConfigBuilder(URL url) throws IOException {
         checkNotNull(url, "URL is null!");
-        this.in = url.openStream();
+        this.in = ConfigLoader.openConfig(url);
         this.configurationUrl = url;
     }
 

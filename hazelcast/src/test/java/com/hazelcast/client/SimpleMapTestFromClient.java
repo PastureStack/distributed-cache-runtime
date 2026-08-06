@@ -71,19 +71,20 @@ public class SimpleMapTestFromClient {
             System.out.println("    // means 200 threads, value-size 130 bytes, 10% put, 85% get");
             System.out.println("");
         }
+        validateArguments();
         System.out.println("Starting Test with ");
         System.out.println("      Thread Count: " + threadCount);
         System.out.println("       Entry Count: " + entryCount);
         System.out.println("        Value Size: " + valueSize);
         System.out.println("    Get Percentage: " + getPercentage);
         System.out.println("    Put Percentage: " + putPercentage);
-        System.out.println(" Remove Percentage: " + (100 - (putPercentage + getPercentage)));
+        System.out.println(" Remove Percentage: " + (100 - getPercentage - putPercentage));
         ExecutorService es = Executors.newFixedThreadPool(threadCount);
         for (int i = 0; i < threadCount; i++) {
             es.submit((Runnable) () -> {
                 IMap<String, Object> map = client.getMap("default");
                 while (true) {
-                    int key = (int) (Math.random() * entryCount);
+                    int key = (int) (Math.random() * (long) entryCount);
                     int operation = ((int) (Math.random() * 100));
                     if (operation < getPercentage) {
                         map.get(String.valueOf(key));
@@ -113,6 +114,14 @@ public class SimpleMapTestFromClient {
                 }
             }
         });
+    }
+
+    private static void validateArguments() {
+        if (threadCount < 1 || entryCount < 1 || valueSize < 0
+                || getPercentage < 0 || putPercentage < 0
+                || getPercentage > 100 || putPercentage > 100 - getPercentage) {
+            throw new IllegalArgumentException("Counts must be positive and operation percentages must total at most 100");
+        }
     }
 
     public static class Stats {

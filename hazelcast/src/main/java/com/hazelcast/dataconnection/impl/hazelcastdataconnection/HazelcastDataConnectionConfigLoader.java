@@ -24,9 +24,8 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
+import static com.hazelcast.internal.util.SecureFileAccess.readString;
 
 
 /**
@@ -63,8 +62,7 @@ public class HazelcastDataConnectionConfigLoader {
 
     private String readFileContent(String filePath) {
         try {
-            Path path = Paths.get(filePath);
-            return Files.readString(path);
+            return readString(filePath, "data connection configuration file");
         } catch (IOException exception) {
             throw new HazelcastException("Unable to read file :" + filePath);
         }

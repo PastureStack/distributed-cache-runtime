@@ -373,6 +373,15 @@ public class TypeConverterTest {
         assertEquals(0.1F, TypeConverters.LONG_CONVERTER.convert(0.1F));
         assertEquals(0x1p65, TypeConverters.LONG_CONVERTER.convert(0x1p65));
         assertEquals(0.1D, TypeConverters.LONG_CONVERTER.convert("0.1"));
+        assertThat(TypeConverters.LONG_CONVERTER.convert("9223372036854775808"))
+                .isInstanceOf(Double.class)
+                .isEqualTo(Double.parseDouble("9223372036854775808"));
+        assertThat(TypeConverters.LONG_CONVERTER.convert("-9223372036854775809"))
+                .isInstanceOf(Double.class)
+                .isEqualTo(Double.parseDouble("-9223372036854775809"));
+        assertThat(TypeConverters.LONG_CONVERTER.convert("1.0000000000000001"))
+                .isInstanceOf(Double.class)
+                .isEqualTo(Double.parseDouble("1.0000000000000001"));
 
         assertEquals(0.1, TypeConverters.FLOAT_CONVERTER.convert(0.1));
         assertEquals(Integer.MAX_VALUE, TypeConverters.FLOAT_CONVERTER.convert(Integer.MAX_VALUE));
@@ -389,6 +398,9 @@ public class TypeConverterTest {
         assertEquals(Long.MIN_VALUE, TypeConverters.INTEGER_CONVERTER.convert(Long.MIN_VALUE));
         assertEquals(0.1, TypeConverters.INTEGER_CONVERTER.convert("0.1"));
         assertEquals(Long.MAX_VALUE, TypeConverters.INTEGER_CONVERTER.convert(String.valueOf(Long.MAX_VALUE)));
+        assertThat(TypeConverters.INTEGER_CONVERTER.convert("2147483648.0"))
+                .isInstanceOf(Double.class)
+                .isEqualTo(2147483648.0D);
 
         assertEquals(0.1, TypeConverters.SHORT_CONVERTER.convert(0.1));
         assertEquals(0.1F, TypeConverters.SHORT_CONVERTER.convert(0.1F));
@@ -399,6 +411,9 @@ public class TypeConverterTest {
         assertEquals(Integer.MIN_VALUE, TypeConverters.SHORT_CONVERTER.convert(Integer.MIN_VALUE));
         assertEquals(0.1, TypeConverters.SHORT_CONVERTER.convert("0.1"));
         assertEquals(Long.MAX_VALUE, TypeConverters.SHORT_CONVERTER.convert(String.valueOf(Long.MAX_VALUE)));
+        assertThat(TypeConverters.SHORT_CONVERTER.convert("32768.0"))
+                .isInstanceOf(Double.class)
+                .isEqualTo(32768.0D);
 
 
         assertEquals(0.1, TypeConverters.BYTE_CONVERTER.convert(0.1));
@@ -412,6 +427,9 @@ public class TypeConverterTest {
         assertEquals(Short.MIN_VALUE, TypeConverters.BYTE_CONVERTER.convert(Short.MIN_VALUE));
         assertEquals(0.1, TypeConverters.BYTE_CONVERTER.convert("0.1"));
         assertEquals(Long.MAX_VALUE, TypeConverters.BYTE_CONVERTER.convert(String.valueOf(Long.MAX_VALUE)));
+        assertThat(TypeConverters.BYTE_CONVERTER.convert("128.0"))
+                .isInstanceOf(Double.class)
+                .isEqualTo(128.0D);
     }
 
     @Test

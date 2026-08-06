@@ -58,7 +58,7 @@ public class YamlClientFailoverConfigBuilder
         URL url = ConfigLoader.locateConfig(resource);
         checkTrue(url != null, "Could not load " + resource);
 
-        this.in = url.openStream();
+        this.in = ConfigLoader.openConfig(url);
     }
 
     public YamlClientFailoverConfigBuilder(File file)
@@ -70,7 +70,7 @@ public class YamlClientFailoverConfigBuilder
     public YamlClientFailoverConfigBuilder(URL url)
             throws IOException {
         checkNotNull(url, "URL is null!");
-        this.in = url.openStream();
+        this.in = ConfigLoader.openConfig(url);
     }
 
     public YamlClientFailoverConfigBuilder(InputStream in) {

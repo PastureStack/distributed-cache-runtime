@@ -150,7 +150,7 @@ public abstract class AbstractXmlConfigBuilder extends AbstractXmlConfigHelper {
                 throw new InvalidConfigurationException("Resource '" + url.getPath() + "' is already loaded! This can be due to"
                                                             + " duplicate or cyclic imports.");
             }
-            Document doc = parse(url.openStream());
+            Document doc = parse(ConfigLoader.openConfig(url));
             Element importedRoot = doc.getDocumentElement();
             replaceImports(importedRoot);
             for (Node fromImportedDoc : childElements(importedRoot)) {

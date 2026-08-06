@@ -42,7 +42,7 @@ public class ConvenientSourcePTest {
 
     @Test
     public void test_faultTolerance() {
-        long totalCount = 5L;
+        int totalCount = 5;
         StreamSource<Integer> source = SourceBuilder
                 .stream("src", ctx -> new MutableInteger())
                 .<Integer>fillBufferFn((src, buffer) -> {

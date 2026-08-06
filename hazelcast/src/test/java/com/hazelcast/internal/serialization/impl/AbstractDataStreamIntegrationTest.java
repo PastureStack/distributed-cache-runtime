@@ -141,6 +141,27 @@ public abstract class AbstractDataStreamIntegrationTest<O extends ObjectDataOutp
     }
 
     @Test
+    public void testWriteShortPreservesDataOutputLowOrderBitsContract() throws IOException {
+        int[] values = {
+                Integer.MIN_VALUE,
+                Short.MIN_VALUE,
+                -1,
+                0,
+                Short.MAX_VALUE,
+                0xFFFF,
+                Integer.MAX_VALUE
+        };
+        for (int value : values) {
+            out.writeShort(value);
+        }
+
+        ObjectDataInput input = getDataInputFromOutput();
+        for (int value : values) {
+            assertEquals(value & 0xFFFF, input.readUnsignedShort());
+        }
+    }
+
+    @Test
     public void testInt() throws IOException {
         out.writeInt(Integer.MAX_VALUE);
         out.writeInt(Integer.MIN_VALUE);

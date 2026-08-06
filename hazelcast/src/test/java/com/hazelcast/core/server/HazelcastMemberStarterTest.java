@@ -27,9 +27,11 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @RunWith(HazelcastSerialClassRunner.class)
 @Category(QuickTest.class)
@@ -48,6 +50,7 @@ public class HazelcastMemberStarterTest
     @After
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public void tearDown() {
+        System.clearProperty("print.port");
         child.delete();
         parent.delete();
 
@@ -67,5 +70,14 @@ public class HazelcastMemberStarterTest
 
         assertEquals(1, Hazelcast.getAllHazelcastInstances().size());
         assertTrue(child.exists());
+    }
+
+    @Test
+    public void traversalPortFileNameIsRejected() {
+        System.setProperty("print.port", "../outside.ports");
+
+        assertThatThrownBy(() -> HazelcastMemberStarter.printMemberPort(null))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("unsafe port output file name");
     }
 }

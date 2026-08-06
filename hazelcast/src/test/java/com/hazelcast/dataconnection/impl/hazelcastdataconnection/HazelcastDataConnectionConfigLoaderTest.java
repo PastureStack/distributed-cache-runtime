@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -66,5 +67,14 @@ public class HazelcastDataConnectionConfigLoaderTest {
         assertNotNull(loadedConfig.getProperty(HazelcastDataConnection.CLIENT_YML));
         assertNull(loadedConfig.getProperty(HazelcastDataConnection.CLIENT_XML));
     }
-}
 
+    @Test
+    public void traversalPathIsRejected() {
+        DataConnectionConfig dataConnectionConfig = new DataConnectionConfig();
+        dataConnectionConfig.setProperty(HazelcastDataConnection.CLIENT_XML_PATH,
+                Paths.get("src", "test", "resources", "nested", "..", "hazelcast-client-test-external.xml").toString());
+
+        assertThatThrownBy(() -> new HazelcastDataConnectionConfigLoader().load(dataConnectionConfig))
+                .hasMessageContaining("Unable to read file");
+    }
+}

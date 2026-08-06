@@ -67,7 +67,7 @@ public class AddAllOperationTest extends HazelcastTestSupport {
     @Test
     public void whenFailOverflowPolicy_andNoRemainingCapacity() throws Exception {
         NodeEngineThreadLocalContext.declareNodeEngineReference(nodeEngine);
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("item");
         }
 
@@ -84,7 +84,7 @@ public class AddAllOperationTest extends HazelcastTestSupport {
     @Test
     public void whenFailOverflowPolicy_andRemainingCapacity() throws Exception {
         NodeEngineThreadLocalContext.declareNodeEngineReference(nodeEngine);
-        for (int k = 0; k < ringbuffer.capacity() - 1; k++) {
+        for (long k = 0; k < ringbuffer.capacity() - 1; k++) {
             ringbuffer.add("item");
         }
 
@@ -101,7 +101,7 @@ public class AddAllOperationTest extends HazelcastTestSupport {
     @Test
     public void whenOverwritePolicy_andNoRemainingCapacity() throws Exception {
         NodeEngineThreadLocalContext.declareNodeEngineReference(nodeEngine);
-        for (int k = 0; k < ringbuffer.capacity(); k++) {
+        for (long k = 0; k < ringbuffer.capacity(); k++) {
             ringbuffer.add("item");
         }
 
@@ -118,7 +118,7 @@ public class AddAllOperationTest extends HazelcastTestSupport {
     @Test
     public void whenOverwritePolicy_andRemainingCapacity() throws Exception {
         NodeEngineThreadLocalContext.declareNodeEngineReference(nodeEngine);
-        for (int k = 0; k < ringbuffer.capacity() - 1; k++) {
+        for (long k = 0; k < ringbuffer.capacity() - 1; k++) {
             ringbuffer.add("item");
         }
 

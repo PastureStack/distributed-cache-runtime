@@ -170,7 +170,10 @@ public class UnifiedProtocolEncoder
         if (sndBuf == -1) {
             sndBuf = props.getInteger(SOCKET_SEND_BUFFER_SIZE);
         }
-        return sndBuf * KILO_BYTE;
+        if (sndBuf <= 0 || sndBuf > Integer.MAX_VALUE / KILO_BYTE) {
+            throw new IllegalArgumentException("Client send buffer size is outside the supported range");
+        }
+        return Math.multiplyExact(sndBuf, KILO_BYTE);
     }
 
     public void signalEncoderCanReplace() {

@@ -29,12 +29,15 @@ final class Tag {
      * Creates {@link Tag} from a string "key=value".
      */
     Tag(String spec) {
-        String[] labelParts = spec.trim().split("\\s*=\\s*");
-        if (labelParts.length != 2) {
+        String trimmedSpec = spec.trim();
+        int separatorIndex = trimmedSpec.indexOf('=');
+        if (separatorIndex < 0
+                || separatorIndex != trimmedSpec.lastIndexOf('=')
+                || separatorIndex == trimmedSpec.length() - 1) {
             throw new InvalidConfigurationException(String.format("Invalid tag specification: '%s'", spec));
         }
-        this.key = labelParts[0];
-        this.value = labelParts[1];
+        this.key = trimmedSpec.substring(0, separatorIndex).trim();
+        this.value = trimmedSpec.substring(separatorIndex + 1).trim();
     }
 
     Tag(String key, String value) {

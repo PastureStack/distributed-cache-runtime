@@ -64,11 +64,11 @@ class WaitSetEntry extends AbstractLocalOperation implements Delayed, PartitionA
         if (waitTimeout < 0) {
             return -1;
         }
-        long expirationTime = Clock.currentTimeMillis() + waitTimeout;
-        if (expirationTime < 0) {
+        try {
+            return Math.addExact(Clock.currentTimeMillis(), waitTimeout);
+        } catch (ArithmeticException ignored) {
             return -1;
         }
-        return expirationTime;
     }
 
     public Operation getOperation() {

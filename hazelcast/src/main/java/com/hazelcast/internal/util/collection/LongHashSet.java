@@ -395,8 +395,7 @@ public final class LongHashSet extends AbstractSet<Long> {
         final LongIterator iterator = iterator();
         int total = 0;
         while (iterator.hasNext()) {
-            // Cast exists for substitutions
-            total += (long) iterator.nextValue();
+            total = Integer.sum(total, Long.hashCode(iterator.nextValue()));
         }
         return total;
     }

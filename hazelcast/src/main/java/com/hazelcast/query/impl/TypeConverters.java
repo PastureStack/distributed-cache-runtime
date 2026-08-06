@@ -211,13 +211,11 @@ public final class TypeConverters {
                     return Long.parseLong(string);
                 } catch (NumberFormatException e) {
                     double parsedDouble = Double.parseDouble(string);
-
-                    long longValue = (long) parsedDouble;
-                    if (Numbers.equalDoubles(parsedDouble, (double) longValue)) {
-                        return longValue;
+                    try {
+                        return new BigDecimal(string).longValueExact();
+                    } catch (ArithmeticException | NumberFormatException ignored) {
+                        return parsedDouble;
                     }
-
-                    return parsedDouble;
                 }
             }
 
@@ -325,13 +323,11 @@ public final class TypeConverters {
                         return Long.parseLong(string);
                     } catch (NumberFormatException e2) {
                         double parsedDouble = Double.parseDouble(string);
-
-                        int intValue = (int) parsedDouble;
-                        if (Numbers.equalDoubles(parsedDouble, (double) intValue)) {
-                            return intValue;
+                        try {
+                            return new BigDecimal(string).intValueExact();
+                        } catch (ArithmeticException | NumberFormatException ignored) {
+                            return parsedDouble;
                         }
-
-                        return parsedDouble;
                     }
                 }
             }
@@ -395,10 +391,9 @@ public final class TypeConverters {
                 // Using parseDouble instead of parseFloat to guarantee the most
                 // precise representation.
                 double parsedDouble = Double.parseDouble(string);
-
-                float floatValue = (float) parsedDouble;
-                if (parsedDouble == (double) floatValue) {
-                    return floatValue;
+                float parsedFloat = Float.parseFloat(string);
+                if (!Double.isNaN(parsedDouble) && Double.compare(parsedDouble, parsedFloat) == 0) {
+                    return parsedFloat;
                 }
 
                 return parsedDouble;
@@ -458,13 +453,11 @@ public final class TypeConverters {
                         return Long.parseLong(string);
                     } catch (NumberFormatException e2) {
                         double parsedDouble = Double.parseDouble(string);
-
-                        short shortValue = (short) parsedDouble;
-                        if (Numbers.equalDoubles(parsedDouble, (double) shortValue)) {
-                            return shortValue;
+                        try {
+                            return new BigDecimal(string).shortValueExact();
+                        } catch (ArithmeticException | NumberFormatException ignored) {
+                            return parsedDouble;
                         }
-
-                        return parsedDouble;
                     }
                 }
             }
@@ -544,13 +537,11 @@ public final class TypeConverters {
                         return Long.parseLong(string);
                     } catch (NumberFormatException e2) {
                         double parsedDouble = Double.parseDouble(string);
-
-                        byte byteValue = (byte) parsedDouble;
-                        if (Numbers.equalDoubles(parsedDouble, (double) byteValue)) {
-                            return byteValue;
+                        try {
+                            return new BigDecimal(string).byteValueExact();
+                        } catch (ArithmeticException | NumberFormatException ignored) {
+                            return parsedDouble;
                         }
-
-                        return parsedDouble;
                     }
                 }
             }

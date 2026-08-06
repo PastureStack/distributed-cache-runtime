@@ -17,6 +17,7 @@
 package com.hazelcast.flakeidgen.impl;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.FlakeIdGeneratorConfig;
@@ -218,6 +219,28 @@ public class FlakeIdGeneratorProxyTest {
 
         when(clusterService.getMemberListJoinVersion()).thenReturn(memberListJoinVersion);
         assertEquals((memberListJoinVersion + nodeIdOffset), gen.getNodeId(0));
+    }
+
+    @Test
+    public void nodeIdOffsetOutsideIntegerRangeIsRejectedWithoutNarrowing() {
+        initialize(new FlakeIdGeneratorConfig().setNodeIdOffset((long) Integer.MAX_VALUE + 1));
+        when(clusterService.getMemberListJoinVersion()).thenReturn(1);
+        Member localMember = mock(Member.class);
+        when(localMember.getUuid()).thenReturn(UUID.randomUUID());
+        when(clusterService.getLocalMember()).thenReturn(localMember);
+
+        assertEquals(-2, gen.getNodeId(0));
+    }
+
+    @Test
+    public void nodeIdOffsetAdditionOverflowIsRejectedWithoutThrowing() {
+        initialize(new FlakeIdGeneratorConfig().setNodeIdOffset(Long.MAX_VALUE));
+        when(clusterService.getMemberListJoinVersion()).thenReturn(1);
+        Member localMember = mock(Member.class);
+        when(localMember.getUuid()).thenReturn(UUID.randomUUID());
+        when(clusterService.getLocalMember()).thenReturn(localMember);
+
+        assertEquals(-2, gen.getNodeId(0));
     }
 
     @Test

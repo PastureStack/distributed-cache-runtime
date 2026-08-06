@@ -253,7 +253,14 @@ public abstract class AbstractHazelcastCachingProvider implements CachingProvide
         }
         URL configURL;
         if ("classpath".equals(scheme)) {
-            configURL = classLoader.getResource(location.getRawSchemeSpecificPart());
+            String resourceName = location.getRawSchemeSpecificPart();
+            if (resourceName == null || resourceName.isBlank()
+                    || resourceName.contains("..")
+                    || resourceName.startsWith("/")
+                    || resourceName.contains("\\")) {
+                throw new URISyntaxException(location.toString(), "Unsafe classpath configuration resource");
+            }
+            configURL = classLoader.getResource(resourceName);
         } else if ("file".equals(scheme) || "http".equals(scheme) || "https".equals(scheme) || "jar".equals(scheme)) {
             configURL = location.toURL();
         } else {
