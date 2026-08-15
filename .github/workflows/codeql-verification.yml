@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           ./mvnw -B \
-            -pl hazelcast,hazelcast-build-utils,hazelcast-sql,extensions/cdc-debezium \
+            -pl hazelcast,hazelcast-build-utils,hazelcast-sql,extensions/cdc-debezium,extensions/mongodb \
             -am \
             -DskipTests \
             -Dcheckstyle.skip=true \

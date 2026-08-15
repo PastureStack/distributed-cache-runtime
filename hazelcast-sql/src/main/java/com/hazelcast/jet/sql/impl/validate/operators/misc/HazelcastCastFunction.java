@@ -21,6 +21,7 @@ import com.hazelcast.jet.sql.impl.validate.HazelcastResources;
 import com.hazelcast.jet.sql.impl.validate.operators.common.HazelcastFunction;
 import com.hazelcast.jet.sql.impl.validate.param.NoOpParameterConverter;
 import com.hazelcast.sql.SqlColumnType;
+import com.hazelcast.sql.impl.QueryException;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
@@ -39,6 +40,7 @@ import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 import static com.hazelcast.jet.sql.impl.validate.types.HazelcastTypeUtils.canCast;
+import static com.hazelcast.jet.sql.impl.validate.types.HazelcastTypeUtils.isJsonType;
 import static com.hazelcast.jet.sql.impl.validate.types.HazelcastTypeUtils.toHazelcastType;
 
 public final class HazelcastCastFunction extends HazelcastFunction {
@@ -71,6 +73,13 @@ public final class HazelcastCastFunction extends HazelcastFunction {
             int sourceParameterIndex = ((SqlDynamicParam) sourceOperand).getIndex();
 
             binding.getValidator().setParameterConverter(sourceParameterIndex, NoOpParameterConverter.INSTANCE);
+        }
+
+        if (sourceType.getSqlTypeName() == SqlTypeName.ROW && isJsonType(targetType)) {
+            if (throwOnFailure) {
+                throw QueryException.error("Cannot convert ROW to JSON");
+            }
+            return false;
         }
 
         if (canCast(sourceType, targetType)) {

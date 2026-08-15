@@ -69,6 +69,7 @@ public class JoinNestedLoopPhysicalRel extends JoinPhysicalRel {
         }
         List<Integer> leftKeys = joinInfo.leftKeys.toIntegerList();
         List<Integer> rightKeys = joinInfo.rightKeys.toIntegerList();
+        List<Boolean> nullExclusionFlags = new ArrayList<>(joinInfo.nullExclusionFlags);
         HazelcastTable table = OptUtils.extractHazelcastTable(getRight());
         RexBuilder rexBuilder = getCluster().getRexBuilder();
 
@@ -92,12 +93,14 @@ public class JoinNestedLoopPhysicalRel extends JoinPhysicalRel {
                         rightExpr));
                 leftKeys.remove(i);
                 rightKeys.remove(i);
+                nullExclusionFlags.remove(i);
                 i--;
             }
         }
 
         modifiedJoinInfo = new ModifiedJoinInfo(ImmutableIntList.copyOf(leftKeys),
                 ImmutableIntList.copyOf(rightKeys),
+                ImmutableList.copyOf(nullExclusionFlags),
                 ImmutableList.<RexNode>builder()
                         .addAll(joinInfo.nonEquiConditions)
                         .addAll(additionalNonEquiConditions).build());
@@ -123,8 +126,9 @@ public class JoinNestedLoopPhysicalRel extends JoinPhysicalRel {
 
     protected static class ModifiedJoinInfo extends JoinInfo {
         protected ModifiedJoinInfo(ImmutableIntList leftKeys, ImmutableIntList rightKeys,
+                                   ImmutableList<Boolean> nullExclusionFlags,
                                    ImmutableList<RexNode> nonEquiConditions) {
-            super(leftKeys, rightKeys, nonEquiConditions);
+            super(leftKeys, rightKeys, nullExclusionFlags, nonEquiConditions);
         }
     }
 }
