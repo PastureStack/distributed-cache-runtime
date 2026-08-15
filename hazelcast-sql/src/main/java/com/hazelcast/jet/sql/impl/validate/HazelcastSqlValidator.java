@@ -26,7 +26,6 @@ import com.hazelcast.jet.sql.impl.schema.HazelcastDynamicTableFunction;
 import com.hazelcast.jet.sql.impl.schema.HazelcastTable;
 import com.hazelcast.jet.sql.impl.validate.HazelcastSqlOperatorTable.RewriteVisitor;
 import com.hazelcast.jet.sql.impl.validate.literal.LiteralUtils;
-import com.hazelcast.jet.sql.impl.validate.operators.misc.HazelcastCastFunction;
 import com.hazelcast.jet.sql.impl.validate.param.AbstractParameterConverter;
 import com.hazelcast.jet.sql.impl.validate.types.HazelcastObjectType;
 import com.hazelcast.jet.sql.impl.validate.types.HazelcastTypeCoercion;
@@ -52,7 +51,6 @@ import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
-import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlIntervalLiteral;
@@ -209,29 +207,6 @@ public class HazelcastSqlValidator extends SqlValidatorImplBridge {
     public void validateInsert(final SqlInsert insert) {
         super.validateInsert(insert);
         validateUpsertRowType((SqlIdentifier) insert.getTargetTable());
-    }
-
-    @Override
-    public void validateColumnListParams(
-            final SqlFunction function,
-            final List<RelDataType> argTypes,
-            final List<SqlNode> operands
-    ) {
-        if (!(function instanceof HazelcastCastFunction)) {
-            super.validateColumnListParams(function, argTypes, operands);
-        }
-
-        if (argTypes.get(0).getSqlTypeName() != SqlTypeName.COLUMN_LIST) {
-            throw QueryException.error("Cannot convert " + argTypes.get(0).getSqlTypeName()
-                    + " to " + argTypes.get(1).getSqlTypeName());
-        }
-
-        final SqlCall call = (SqlCall) operands.get(0);
-
-        assert call.getOperator().getKind() == SqlKind.ROW
-                : "CAST column list argument is not a RowExpression call";
-
-        throw QueryException.error("Cannot convert ROW to JSON");
     }
 
     private void validateSelect(SqlSelect select, SqlValidatorScope scope) {
