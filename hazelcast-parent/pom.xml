@@ -516,6 +516,17 @@
                 <artifactId>httpclient</artifactId>
                 <version>4.5.14</version>
             </dependency>
+            <!-- Keep Calcite 1.42 transitive dependencies converged on their highest resolved versions. -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>5.3.5</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jooq</groupId>
+                <artifactId>joou-java-6</artifactId>
+                <version>0.9.5</version>
+            </dependency>
             <dependency>
                 <groupId>com.fasterxml.woodstox</groupId>
                 <artifactId>woodstox-core</artifactId>
