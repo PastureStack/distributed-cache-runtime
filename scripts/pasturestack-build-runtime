@@ -40,6 +40,7 @@ grep -Fq '<version>3.5.1</version>' hazelcast/src/test/resources/com/hazelcast/c
 grep -Fq '<version>3.5.1</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<version>3.5.1</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
 grep -A1 -F '<artifactId>maven-install-plugin</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.1.4</version>'
+grep -A1 -F '<artifactId>maven-dependency-plugin</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.11.0</version>'
 grep -Fq '<kotlin.compiler.daemon>false</kotlin.compiler.daemon>' pom.xml
 grep -Fq '<release>${jdk.version}</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<jdk.version>8</jdk.version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml

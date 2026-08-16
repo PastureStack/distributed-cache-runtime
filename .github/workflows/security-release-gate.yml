@@ -1,9 +1,12 @@
 name: Security release gate
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
-      - 'verification/distributed-cache-runtime-*'
+      - main
   workflow_dispatch:
 
 permissions:
@@ -18,7 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     env:
-      TRIVY_IMAGE: aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+      TRIVY_IMAGE: aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
     steps:
       - name: Check out candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -44,19 +47,32 @@ jobs:
           printf '%s/bin\n' "$java_home" >> "$GITHUB_PATH"
           "$java_home/bin/java" -version
 
+      - name: Install pinned evidence verifier runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.14.7'
+          check-latest: false
+          update-environment: true
+
       - name: Verify candidate identity and supply-chain pins
         shell: bash
         run: |
           set -euo pipefail
           test -z "$(git status --porcelain)"
-          test "$(git rev-list --count 60c31e3750cbad64f5720e2e02f0a9830973193c..HEAD)" -eq 1
           test "$(git rev-parse 60c31e3750cbad64f5720e2e02f0a9830973193c^{commit})" = \
             60c31e3750cbad64f5720e2e02f0a9830973193c
+          git merge-base --is-ancestor 60c31e3750cbad64f5720e2e02f0a9830973193c HEAD
           grep -Fxq 'distributionSha256Sum=55fadd669532a3205d5db95f490bf13971d8b0843526f407f29db0e61f074ab3' \
             .mvn/wrapper/maven-wrapper.properties
+          test "$(python --version)" = 'Python 3.14.7'
           mkdir -p evidence
           git rev-parse HEAD > evidence/source-revision.txt
           sha256sum .mvn/wrapper/maven-wrapper.properties > evidence/source-locks.sha256
+          git ls-files -- 'pom.xml' '**/pom.xml' '.mvn/**' 'mvnw' 'mvnw.cmd' \
+            | LC_ALL=C sort -u > evidence/maven-input-files.txt
+          while IFS= read -r source_path; do
+            sha256sum -- "$source_path"
+          done < evidence/maven-input-files.txt > evidence/maven-inputs.sha256
 
       - name: Run focused legitimate and malicious regression suite
         shell: bash
@@ -176,6 +192,37 @@ jobs:
           sha256sum dist/hazelcast-5.7.2.jar | tee evidence/hazelcast-5.7.2.jar.sha256
           jar tf dist/hazelcast-5.7.2.jar | grep -Fxq META-INF/LICENSE
           jar tf dist/hazelcast-5.7.2.jar | grep -Fxq META-INF/NOTICE
+          native_resources=(
+            hazelcast/src/main/resources/affinity_helper.c
+            hazelcast/src/main/resources/affinity_helper.h
+            hazelcast/src/main/resources/icmp_helper.c
+            hazelcast/src/main/resources/icmp_helper.h
+            hazelcast-tpc-engine/src/main/resources/lib/linux-x86/libicmp_helper.so
+            hazelcast-tpc-engine/src/main/resources/lib/linux-x86_64/libaffinity_helper.so
+            hazelcast-tpc-engine/src/main/resources/lib/linux-x86_64/libicmp_helper.so
+          )
+          sha256sum "${native_resources[@]}" > evidence/native-resources.sha256
+          extracted_native=$(mktemp -d)
+          trap 'rm -rf "$extracted_native"' EXIT
+          (
+            cd "$extracted_native"
+            jar xf "$GITHUB_WORKSPACE/dist/hazelcast-5.7.2.jar" \
+              lib/linux-x86/libicmp_helper.so \
+              lib/linux-x86_64/libaffinity_helper.so \
+              lib/linux-x86_64/libicmp_helper.so
+          )
+          cmp hazelcast-tpc-engine/src/main/resources/lib/linux-x86/libicmp_helper.so \
+            "$extracted_native/lib/linux-x86/libicmp_helper.so"
+          cmp hazelcast-tpc-engine/src/main/resources/lib/linux-x86_64/libaffinity_helper.so \
+            "$extracted_native/lib/linux-x86_64/libaffinity_helper.so"
+          cmp hazelcast-tpc-engine/src/main/resources/lib/linux-x86_64/libicmp_helper.so \
+            "$extracted_native/lib/linux-x86_64/libicmp_helper.so"
+          if jar tf dist/hazelcast-5.7.2.jar | grep -Eq '(^|/)(jet_to_python[^/]*|[^/]+\.py)$'; then
+            echo 'The core runtime artifact unexpectedly contains Python extension resources.' >&2
+            exit 1
+          fi
+          printf 'native_resources_rebuilt=0\nnative_packaged_mismatch=0\npython_extension_resources=0\n' \
+            > evidence/runtime-toolchain-boundary.txt
 
       - name: Generate SBOM and scan current source and artifact
         shell: bash
@@ -184,6 +231,42 @@ jobs:
           # Generate the reviewed runtime SBOM from Maven's resolved dependency
           # graph.  A filesystem scanner can only see this project's shaded JAR
           # as one file and therefore cannot reconstruct its embedded libraries.
+          evidence_plugin_stage="$RUNNER_TEMP/maven-evidence-plugins"
+          mkdir -p "$evidence_plugin_stage"
+          stage_evidence_plugin()
+          {
+            local artifact=$1
+            local version=$2
+            local jar_sha256=$3
+            local pom_sha256=$4
+            local plugin_stage="$evidence_plugin_stage/$artifact"
+            local plugin_repo="$HOME/.m2/repository/org/apache/maven/plugins/$artifact/$version"
+            local plugin_base="https://repo.maven.apache.org/maven2/org/apache/maven/plugins/$artifact/$version"
+            mkdir -p "$plugin_stage" "$plugin_repo"
+            curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+              --output "$plugin_stage/$artifact-$version.jar" \
+              "$plugin_base/$artifact-$version.jar"
+            curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+              --output "$plugin_stage/$artifact-$version.pom" \
+              "$plugin_base/$artifact-$version.pom"
+            printf '%s  %s\n%s  %s\n' \
+              "$jar_sha256" "$plugin_stage/$artifact-$version.jar" \
+              "$pom_sha256" "$plugin_stage/$artifact-$version.pom" | sha256sum -c -
+            install -m 0644 "$plugin_stage/$artifact-$version.jar" "$plugin_repo/"
+            install -m 0644 "$plugin_stage/$artifact-$version.pom" "$plugin_repo/"
+            (
+              cd "$plugin_stage"
+              sha256sum "$artifact-$version.jar" "$artifact-$version.pom"
+            ) >> "$GITHUB_WORKSPACE/evidence/evidence-tools.sha256"
+          }
+          stage_evidence_plugin \
+            maven-help-plugin 3.5.2 \
+            fe53082c6c51b9b4778f4dfe3e9810c18e995c34b0780c30b73fb2a156c90c03 \
+            8afe7663b3150965bbdb27a806f325a748268922491d23cd552e78851dea32ea
+          stage_evidence_plugin \
+            maven-dependency-plugin 3.11.0 \
+            e37a8fc9ff47435cc6bda257a4501cf79626c8115610ba33c77775ce23b4c3b7 \
+            570b5e43230f7a13f9ec8ae0b0993208a5f4c763b6593a87af4123112ce47220
           plugin_stage="$RUNNER_TEMP/cyclonedx-maven-plugin"
           plugin_repo="$HOME/.m2/repository/org/cyclonedx/cyclonedx-maven-plugin/2.9.3"
           plugin_base=https://repo.maven.apache.org/maven2/org/cyclonedx/cyclonedx-maven-plugin/2.9.3
@@ -201,6 +284,10 @@ jobs:
             "$plugin_stage/cyclonedx-maven-plugin-2.9.3.pom" | sha256sum -c -
           install -m 0644 "$plugin_stage/cyclonedx-maven-plugin-2.9.3.jar" "$plugin_repo/"
           install -m 0644 "$plugin_stage/cyclonedx-maven-plugin-2.9.3.pom" "$plugin_repo/"
+          (
+            cd "$plugin_stage"
+            sha256sum cyclonedx-maven-plugin-2.9.3.jar cyclonedx-maven-plugin-2.9.3.pom
+          ) >> "$GITHUB_WORKSPACE/evidence/evidence-tools.sha256"
           # The reviewed artifact build above already compiled the reactor.
           # Install only the POMs and runtime prerequisite JAR into the runner's
           # ephemeral repository, without recompiling or running tests.
@@ -212,6 +299,10 @@ jobs:
           ./mvnw -B org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
             -Dfile=hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.2.jar \
             -DpomFile=hazelcast-tpc-engine/pom.xml
+          timeout --signal=TERM --kill-after=30s 15m ./mvnw -B \
+            org.apache.maven.plugins:maven-help-plugin:3.5.2:effective-pom \
+            -Doutput="$PWD/evidence/maven-effective-pom.xml"
+          test -s evidence/maven-effective-pom.xml
           timeout --signal=TERM --kill-after=30s 30m ./mvnw -B \
             -f hazelcast/pom.xml \
             -DskipTests \
@@ -233,12 +324,21 @@ jobs:
             "$plugin_repo/cyclonedx-maven-plugin-2.9.3.jar" \
             7c8d3c7c1a2efd58c134f09926f3de47d3de26de36130775ab1c3bfb74b4279c \
             "$plugin_repo/cyclonedx-maven-plugin-2.9.3.pom" | sha256sum -c -
+          printf '%s  %s\n%s  %s\n%s  %s\n%s  %s\n' \
+            fe53082c6c51b9b4778f4dfe3e9810c18e995c34b0780c30b73fb2a156c90c03 \
+            "$HOME/.m2/repository/org/apache/maven/plugins/maven-help-plugin/3.5.2/maven-help-plugin-3.5.2.jar" \
+            8afe7663b3150965bbdb27a806f325a748268922491d23cd552e78851dea32ea \
+            "$HOME/.m2/repository/org/apache/maven/plugins/maven-help-plugin/3.5.2/maven-help-plugin-3.5.2.pom" \
+            e37a8fc9ff47435cc6bda257a4501cf79626c8115610ba33c77775ce23b4c3b7 \
+            "$HOME/.m2/repository/org/apache/maven/plugins/maven-dependency-plugin/3.11.0/maven-dependency-plugin-3.11.0.jar" \
+            570b5e43230f7a13f9ec8ae0b0993208a5f4c763b6593a87af4123112ce47220 \
+            "$HOME/.m2/repository/org/apache/maven/plugins/maven-dependency-plugin/3.11.0/maven-dependency-plugin-3.11.0.pom" | sha256sum -c -
           timeout --signal=TERM --kill-after=30s 10m ./mvnw -B \
             -f hazelcast/pom.xml \
             -Dscope=runtime \
             -DoutputType=json \
             -DoutputFile="$PWD/evidence/maven-runtime-dependency-tree.json" \
-            org.apache.maven.plugins:maven-dependency-plugin:3.10.0:tree
+            org.apache.maven.plugins:maven-dependency-plugin:3.11.0:tree
           docker pull "$TRIVY_IMAGE"
           trivy_cache="$RUNNER_TEMP/trivy-cache"
           mkdir -p "$trivy_cache"
@@ -272,14 +372,23 @@ jobs:
             --scanners vuln --severity CRITICAL,HIGH --format json \
             --output /evidence/hazelcast-5.7.2.sbom.trivy.json \
             /evidence/hazelcast-5.7.2.cdx.json
-          sha256sum evidence/hazelcast-5.7.2.cdx.json \
+          sha256sum evidence/maven-effective-pom.xml \
+            evidence/maven-runtime-dependency-tree.json evidence/hazelcast-5.7.2.cdx.json \
             evidence/hazelcast-5.7.2.sbom.trivy.json evidence/hazelcast-5.7.2.trivy.json \
+            evidence/evidence-tools.sha256 \
+            evidence/native-resources.sha256 evidence/runtime-toolchain-boundary.txt \
             > evidence/security-evidence.sha256
 
       - name: Enforce complete zero-Critical and zero-High evidence
         shell: bash
         run: |
           set -euo pipefail
+          python scripts/pasturestack-verify-maven-evidence.py \
+            --effective-pom evidence/maven-effective-pom.xml \
+            --sbom evidence/hazelcast-5.7.2.cdx.json \
+            --dependency-tree evidence/maven-runtime-dependency-tree.json \
+            --summary evidence/maven-evidence-summary.txt
+          sha256sum evidence/maven-evidence-summary.txt >> evidence/security-evidence.sha256
           python3 - <<'PY'
           import json
           import pathlib
@@ -388,12 +497,13 @@ jobs:
           ):
               raise SystemExit(1)
           PY
+          sha256sum evidence/security-summary.txt >> evidence/security-evidence.sha256
           # The Maven plugin validates the produced BOM against CycloneDX 1.6
           # while writing it; this second independent validator prevents a
           # generator regression from being accepted by its own implementation.
           docker run --rm --network none \
             -v "$PWD/evidence:/evidence:ro" \
-            cyclonedx/cyclonedx-cli:0.32.0@sha256:9a858a15e7b0843606efc0ff19d5f7575011a5428d7f3d343b4f6cf09d8f0d4e \
+            cyclonedx/cyclonedx-cli:0.33.1@sha256:252c2e26f468c25fea1e63ecde1bc3198ad6e9dbb57f5ed3236bddcb2281b3a7 \
             validate --input-file /evidence/hazelcast-5.7.2.cdx.json \
             --input-format json --input-version v1_6 --fail-on-errors
 

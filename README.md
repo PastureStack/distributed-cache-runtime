@@ -97,7 +97,7 @@ Building Hazelcast requires at minimum JDK 17. Pull the latest source from the
 repository and use Maven install (or package) to build:
 
 ```bash
-$ git pull origin master
+$ git pull origin main
 $ ./mvnw clean package -DskipTests
 ```
 

@@ -1,9 +1,12 @@
 name: CodeQL verification
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
-      - 'verification/distributed-cache-runtime-*'
+      - main
   workflow_dispatch:
 
 permissions:
@@ -42,17 +45,27 @@ jobs:
           printf '%s/bin\n' "$java_home" >> "$GITHUB_PATH"
           "$java_home/bin/java" -version
 
+      - name: Install pinned evidence verifier runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.14.7'
+          check-latest: false
+          update-environment: true
+
       - name: Verify source and wrapper integrity
         shell: bash
         run: |
           set -euo pipefail
           test -z "$(git status --porcelain)"
-          test "$(git rev-list --count 60c31e3750cbad64f5720e2e02f0a9830973193c..HEAD)" -eq 1
+          test "$(git rev-parse 60c31e3750cbad64f5720e2e02f0a9830973193c^{commit})" = \
+            60c31e3750cbad64f5720e2e02f0a9830973193c
+          git merge-base --is-ancestor 60c31e3750cbad64f5720e2e02f0a9830973193c HEAD
           grep -Fxq 'distributionSha256Sum=55fadd669532a3205d5db95f490bf13971d8b0843526f407f29db0e61f074ab3' \
             .mvn/wrapper/maven-wrapper.properties
+          test "$(python --version)" = 'Python 3.14.7'
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           languages: java-kotlin
           build-mode: manual
@@ -77,7 +90,7 @@ jobs:
             test-compile
 
       - name: Analyze without publishing temporary alerts
-        uses: github/codeql-action/analyze@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
         with:
           category: '/language:java-kotlin'
           upload: never
