@@ -16,13 +16,10 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import com.hazelcast.jet.JetException;
 import com.hazelcast.jet.pipeline.Pipeline;
-import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -37,7 +34,6 @@ import static com.hazelcast.jet.elastic.pipeline.CommonElasticSinksPipeline.writ
 import static com.hazelcast.jet.elastic.pipeline.CommonElasticSinksPipeline.writeItemsToIndexUsingSourceFactoryMethodPipeline;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.elasticsearch.client.RequestOptions.DEFAULT;
 
 public abstract class CommonElasticSinksTest extends BaseElasticTest {
 
@@ -65,9 +61,10 @@ public abstract class CommonElasticSinksTest extends BaseElasticTest {
         submitJob(p);
         refreshIndex();
 
-        SearchResponse response = elasticClient.search(new SearchRequest("my-index"), DEFAULT);
-        TotalHits totalHits = response.getHits().getTotalHits();
-        assertThat(totalHits.value).isEqualTo(batchSize);
+        SearchResponse<Void> response = elasticClient.search(
+                request -> request.index("my-index").size(0), Void.class);
+        TotalHits totalHits = response.hits().total();
+        assertThat(totalHits.value()).isEqualTo(batchSize);
     }
 
     @Test
@@ -127,7 +124,7 @@ public abstract class CommonElasticSinksTest extends BaseElasticTest {
      */
     @Test
     public void given_documentNotInIndex_whenWriteToElasticSinkUpdateRequest_then_jobShouldFail() throws Exception {
-        elasticClient.indices().create(new CreateIndexRequest("my-index"), RequestOptions.DEFAULT);
+        elasticClient.indices().create(request -> request.index("my-index"));
 
         Pipeline p = updateItemsInIndexPipeline(
                 "my-index",

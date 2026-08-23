@@ -20,7 +20,6 @@ import com.hazelcast.test.HazelcastParametrizedRunner;
 import com.hazelcast.test.HazelcastSerialParametersRunnerFactory;
 import com.hazelcast.test.annotation.NightlyTest;
 import com.hazelcast.test.annotation.ParallelJVMTest;
-import io.confluent.kafka.schemaregistry.exceptions.SchemaRegistryException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.junit.Before;
@@ -125,7 +124,7 @@ public class SqlAvroSchemaEvolutionTest extends KafkaSqlTestSupport {
     }
 
     @Test
-    public void test_autoRegisterSchema() throws SchemaRegistryException {
+    public void test_autoRegisterSchema() {
         kafkaMapping()
             .fields("id INT EXTERNAL NAME \"__key.id\"",
                     "name VARCHAR")
@@ -149,7 +148,7 @@ public class SqlAvroSchemaEvolutionTest extends KafkaSqlTestSupport {
     }
 
     @Test
-    public void test_useLatestSchema() throws SchemaRegistryException {
+    public void test_useLatestSchema() {
         // create initial schema
         kafkaTestSupport.registerSchema(name + "-key", ID_SCHEMA);
         kafkaTestSupport.registerSchema(valueSubjectName, NAME_SCHEMA);
@@ -194,7 +193,7 @@ public class SqlAvroSchemaEvolutionTest extends KafkaSqlTestSupport {
     @Ignore("(key|value).schema.id configs are not supported currently. " +
             "Key/value-specific serializer configs will be implemented by HZG-53.")
     @Test
-    public void test_useSpecificSchema() throws SchemaRegistryException {
+    public void test_useSpecificSchema() {
         // create initial schema
         int keySchemaId = kafkaTestSupport.registerSchema(name + "-key", ID_SCHEMA);
         int valueSchemaId = kafkaTestSupport.registerSchema(valueSubjectName, NAME_SCHEMA);
@@ -232,7 +231,7 @@ public class SqlAvroSchemaEvolutionTest extends KafkaSqlTestSupport {
         insertAndAssertRecords();
     }
 
-    private int insertInitialRecordAndAlterSchema() throws SchemaRegistryException {
+    private int insertInitialRecordAndAlterSchema() {
         // insert initial record
         insertRecord(13, "Alice");
         assertEquals(1, kafkaTestSupport.getLatestSchemaVersion(valueSubjectName));
@@ -250,7 +249,7 @@ public class SqlAvroSchemaEvolutionTest extends KafkaSqlTestSupport {
         return valueSchemaId;
     }
 
-    private void insertAndAssertRecords() throws SchemaRegistryException {
+    private void insertAndAssertRecords() {
         int fields = updateMapping ? 3 : 2;
 
         // insert record against mapping's schema

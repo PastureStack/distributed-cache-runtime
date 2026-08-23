@@ -16,6 +16,16 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.collection.IList;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
@@ -26,22 +36,6 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.test.IgnoreInJenkinsOnWindows;
 import com.hazelcast.jet.test.SerialTest;
 import com.hazelcast.test.HazelcastSerialClassRunner;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.WriteRequest.RefreshPolicy;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
-import org.elasticsearch.search.SearchHit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -50,17 +44,13 @@ import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.hazelcast.test.DockerTestUtil.assumeDockerEnabled;
 import static com.hazelcast.test.HazelcastTestSupport.smallInstanceConfig;
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.elasticsearch.client.RequestOptions.DEFAULT;
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 
 /**
  * Base class for running Elasticsearch connector tests
@@ -76,7 +66,7 @@ public abstract class BaseElasticTest {
 
     protected static final int BATCH_SIZE = 42;
 
-    protected RestHighLevelClient elasticClient;
+    protected ElasticsearchClient elasticClient;
     protected HazelcastInstance hz;
     protected IList<String> results;
 
@@ -88,7 +78,8 @@ public abstract class BaseElasticTest {
     @Before
     public void setUpBase() {
         if (elasticClient == null) {
-            elasticClient = new RestHighLevelClient(elasticClientSupplier().get());
+            elasticClient = new ElasticsearchClient(new Rest5ClientTransport(
+                    elasticClientSupplier().get().build(), new JacksonJsonpMapper()));
         }
         cleanElasticData();
 
@@ -111,18 +102,18 @@ public abstract class BaseElasticTest {
     }
 
     /**
-     * RestHighLevelClient supplier, it is used to create a client before each
+     * REST 5 client builder supplier, used to create a client before each
      * test for use by all methods from this class interacting with elastic
      */
-    protected SupplierEx<RestClientBuilder> elasticClientSupplier() {
+    protected SupplierEx<Rest5ClientBuilder> elasticClientSupplier() {
         return ElasticSupport.elasticClientSupplier();
     }
 
     /**
-     * RestHighLevelClient supplier, it is used to used as a parameter of
+     * REST 5 client builder supplier, used as a parameter of
      * {@link ElasticSourceBuilder#clientFn(SupplierEx)}
      */
-    protected SupplierEx<RestClientBuilder> elasticPipelineClientSupplier() {
+    protected SupplierEx<Rest5ClientBuilder> elasticPipelineClientSupplier() {
         return ElasticSupport.elasticClientSupplier();
     }
 
@@ -136,20 +127,17 @@ public abstract class BaseElasticTest {
         indexBatchOfDocuments(index);
     }
 
-    protected Settings.Builder configureShardedIndices(Settings.Builder settings) {
-        return settings.put("index.unassigned.node_left.delayed_timeout", "1s");
-    }
-
     /**
      * Creates an index with given name with 3 shards
      */
     protected void createShardedIndex(String index, int shards, int replicas) throws IOException {
-        CreateIndexRequest request = new CreateIndexRequest(index);
-        request.settings(configureShardedIndices(Settings.builder()
-                  .put("index.number_of_shards", shards)
-                  .put("index.number_of_replicas", replicas)));
-
-        elasticClient.indices().create(request, RequestOptions.DEFAULT);
+        elasticClient.indices().create(request -> request
+                .index(index)
+                .settings(settings -> settings
+                        .numberOfShards(String.valueOf(shards))
+                        .numberOfReplicas(String.valueOf(replicas))
+                        .otherSettings("index.unassigned.node_left.delayed_timeout",
+                                co.elastic.clients.json.JsonData.of("1s"))));
     }
 
     /**
@@ -157,8 +145,16 @@ public abstract class BaseElasticTest {
      */
     protected void cleanElasticData() {
         try {
-            // All documents are deleted when an index is deleted
-            elasticClient.indices().delete(new DeleteIndexRequest("*"), DEFAULT);
+            // Elasticsearch 9 keeps destructive wildcard deletion disabled by
+            // default. Resolve regular test indexes first, then delete only the
+            // explicit names instead of weakening that server-side safeguard.
+            List<String> indexes = List.copyOf(elasticClient.indices().get(request -> request
+                    .index("*")
+                    .allowNoIndices(true)
+                    .ignoreUnavailable(true)).indices().keySet());
+            if (!indexes.isEmpty()) {
+                elasticClient.indices().delete(request -> request.index(indexes));
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -168,10 +164,10 @@ public abstract class BaseElasticTest {
      * Deletes all documents in all indexes
      */
     protected void deleteDocuments() throws IOException {
-        DeleteByQueryRequest request = new DeleteByQueryRequest("*")
-                .setQuery(matchAllQuery())
-                .setRefresh(true);
-        elasticClient.deleteByQuery(request, DEFAULT);
+        elasticClient.deleteByQuery(request -> request
+                .index("*")
+                .query(query -> query.matchAll(matchAll -> matchAll))
+                .refresh(true));
     }
 
     /**
@@ -203,19 +199,15 @@ public abstract class BaseElasticTest {
      * Indexes a given list of documents to an index with given name
      */
     protected List<String> indexDocuments(String index, List<Map<String, Object>> documents) {
-        BulkRequest request = new BulkRequest()
-                .setRefreshPolicy(RefreshPolicy.IMMEDIATE);
-
+        BulkRequest.Builder request = new BulkRequest.Builder().refresh(Refresh.True);
         for (Map<String, Object> document : documents) {
-            request.add(new IndexRequest(index)
-                    .source(document));
+            request.operations(BulkOperation.of(operation -> operation
+                    .index(item -> item.index(index).document(document))));
         }
 
         try {
-            BulkResponse response = elasticClient.bulk(request, RequestOptions.DEFAULT);
-            return Arrays.stream(response.getItems())
-                         .map(BulkItemResponse::getId)
-                         .collect(Collectors.toList());
+            BulkResponse response = elasticClient.bulk(request.build());
+            return response.items().stream().map(item -> item.id()).toList();
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -224,7 +216,7 @@ public abstract class BaseElasticTest {
 
     protected void refreshIndex() throws IOException {
         // Need to refresh index because the default bulk request doesn't do it and we may not see the result
-        elasticClient.indices().refresh(new RefreshRequest("my-index"), DEFAULT);
+        elasticClient.indices().refresh(request -> request.index("my-index"));
     }
 
     protected void assertSingleDocument() throws IOException {
@@ -232,10 +224,11 @@ public abstract class BaseElasticTest {
     }
 
     protected void assertSingleDocument(String id, String name) throws IOException {
-        SearchResponse response = elasticClient.search(new SearchRequest("my-index"), DEFAULT);
-        SearchHit[] hits = response.getHits().getHits();
+        SearchResponse<Map> response = elasticClient.search(
+                request -> request.index("my-index"), Map.class);
+        List<Hit<Map>> hits = response.hits().hits();
         assertThat(hits).hasSize(1);
-        Map<String, Object> document = hits[0].getSourceAsMap();
+        Map<String, Object> document = hits.get(0).source();
         assertThat(document).contains(
                 entry("id", id),
                 entry("name", name)
@@ -243,8 +236,9 @@ public abstract class BaseElasticTest {
     }
 
     protected void assertNoDocuments(String index) throws IOException {
-        SearchResponse response = elasticClient.search(new SearchRequest(index), DEFAULT);
-        SearchHit[] hits = response.getHits().getHits();
+        SearchResponse<Map> response = elasticClient.search(
+                request -> request.index(index), Map.class);
+        List<Hit<Map>> hits = response.hits().hits();
         assertThat(hits).hasSize(0);
     }
 

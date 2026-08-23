@@ -16,28 +16,32 @@
 
 package com.hazelcast.jet.elastic.impl;
 
-import com.hazelcast.function.FunctionEx;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.RequestBase;
+import co.elastic.clients.elasticsearch.core.ClearScrollRequest;
+import co.elastic.clients.elasticsearch.core.ClearScrollResponse;
+import co.elastic.clients.elasticsearch.core.ScrollRequest;
+import co.elastic.clients.elasticsearch.core.ScrollResponse;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import co.elastic.clients.elasticsearch.core.search.TotalHits;
+import co.elastic.clients.json.JsonData;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.TransportOptions;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Node;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.hazelcast.jet.JetException;
 import com.hazelcast.jet.Traverser;
 import com.hazelcast.jet.Traversers;
 import com.hazelcast.jet.core.AbstractProcessor;
 import com.hazelcast.logging.ILogger;
-import org.apache.http.HttpHost;
-import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.ClearScrollResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.Node;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.slice.SliceBuilder;
+import org.apache.hc.core5.http.HttpHost;
 
 import javax.annotation.Nonnull;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import static com.hazelcast.jet.elastic.impl.RetryUtils.withRetry;
@@ -50,11 +54,12 @@ final class ElasticSourceP<T> extends AbstractProcessor {
 
     private final ElasticSourceConfiguration<T> configuration;
     private final List<Shard> shards;
-    private RestHighLevelClient client;
+    private ElasticsearchClient client;
+    private Rest5Client restClient;
     private ILogger logger;
     private Traverser<T> traverser;
 
-    // need to keep ElasticScrollTraverser to be able to close the scroll when needed
+    // Retained so the scroll can be released when processing ends or fails.
     private ElasticScrollTraverser scrollTraverser;
 
     ElasticSourceP(ElasticSourceConfiguration<T> configuration, List<Shard> shards) {
@@ -69,25 +74,26 @@ final class ElasticSourceP<T> extends AbstractProcessor {
         logger = context.logger();
         logger.fine("init");
 
-        client = configuration.clientFn().get();
-        SearchRequest sr = configuration.searchRequestFn().get();
-        sr.scroll(configuration.scrollKeepAlive());
+        restClient = configuration.clientFn().get().build();
+        client = new ElasticsearchClient(new Rest5ClientTransport(
+                restClient, new JacksonJsonpMapper()));
+
+        SearchRequest.Builder requestBuilder = configuration.searchRequestFn().get().rebuild()
+                .scroll(scroll -> scroll.time(configuration.scrollKeepAlive()));
 
         if (configuration.isSlicingEnabled()) {
+            int sliceId;
+            int totalSlices;
             if (configuration.isCoLocatedReadingEnabled()) {
-                int sliceId = context.localProcessorIndex();
-                int totalSlices = context.localParallelism();
-                if (totalSlices > 1) {
-                    logger.fine("Slice id=%s, max=%s", sliceId, totalSlices);
-                    sr.source().slice(new SliceBuilder(sliceId, totalSlices));
-                }
+                sliceId = context.localProcessorIndex();
+                totalSlices = context.localParallelism();
             } else {
-                int sliceId = context.globalProcessorIndex();
-                int totalSlices = context.totalParallelism();
-                if (totalSlices > 1) {
-                    logger.fine("Slice id=%s, max=%s", sliceId, totalSlices);
-                    sr.source().slice(new SliceBuilder(sliceId, totalSlices));
-                }
+                sliceId = context.globalProcessorIndex();
+                totalSlices = context.totalParallelism();
+            }
+            if (totalSlices > 1) {
+                logger.fine("Slice id=%s, max=%s", sliceId, totalSlices);
+                requestBuilder.slice(slice -> slice.id(String.valueOf(sliceId)).max(totalSlices));
             }
         }
 
@@ -98,25 +104,24 @@ final class ElasticSourceP<T> extends AbstractProcessor {
                 return;
             }
 
-            Node node = createLocalElasticNode();
-            client.getLowLevelClient().setNodes(singleton(node));
-            String preference =
-                    "_shards:" + shards.stream().map(shard -> String.valueOf(shard.getShard())).collect(joining(","))
-                            + "|_only_local";
-            sr.preference(preference);
+            restClient.setNodes(singleton(createLocalElasticNode()));
+            String preference = "_shards:"
+                    + shards.stream().map(shard -> String.valueOf(shard.getShard())).collect(joining(","))
+                    + "|_only_local";
+            requestBuilder.preference(preference);
         }
 
-        scrollTraverser = new ElasticScrollTraverser(configuration, client, sr, logger);
+        scrollTraverser = new ElasticScrollTraverser(
+                configuration, client, requestBuilder.build(), logger);
         traverser = scrollTraverser.map(configuration.mapToItemFn());
     }
 
-    private Node createLocalElasticNode() {
+    private Node createLocalElasticNode() throws URISyntaxException {
         List<String> ips = shards.stream().map(Shard::getHttpAddress).distinct().collect(toList());
         if (ips.size() != 1) {
             throw new JetException("Should receive shards from single local node, got: " + ips);
         }
-        String localIp = ips.get(0);
-        return new Node(HttpHost.create(localIp));
+        return new Node(HttpHost.create(ips.get(0)));
     }
 
     @Override
@@ -131,55 +136,60 @@ final class ElasticSourceP<T> extends AbstractProcessor {
 
     @Override
     public void close() {
-        // scrollTraverser is null when scroll init failed
         if (scrollTraverser != null) {
             scrollTraverser.close();
         }
 
-        try {
-            client.close();
-        } catch (Exception e) { // IOException on client.close()
-            logger.fine("Could not close client", e);
+        if (client != null) {
+            try {
+                client.close();
+            } catch (Exception e) {
+                logger.fine("Could not close client", e);
+            }
         }
     }
 
-    static class ElasticScrollTraverser implements Traverser<SearchHit> {
+    static class ElasticScrollTraverser implements Traverser<Hit<JsonData>> {
 
         private final ILogger logger;
-
-        private final RestHighLevelClient client;
-        private final FunctionEx<? super ActionRequest, RequestOptions> optionsFn;
+        private final ElasticsearchClient client;
+        private final ElasticSourceConfiguration<?> configuration;
         private final String scrollKeepAlive;
         private final int retries;
 
-        private SearchHits hits;
+        private List<Hit<JsonData>> hits;
         private int nextHit;
         private String scrollId;
 
-        ElasticScrollTraverser(ElasticSourceConfiguration<?> configuration, RestHighLevelClient client, SearchRequest sr,
-                               ILogger logger) {
+        ElasticScrollTraverser(
+                ElasticSourceConfiguration<?> configuration,
+                ElasticsearchClient client,
+                SearchRequest searchRequest,
+                ILogger logger
+        ) {
+            this.configuration = configuration;
             this.client = client;
-            this.optionsFn = configuration.optionsFn();
             this.scrollKeepAlive = configuration.scrollKeepAlive();
             this.retries = configuration.retries();
             this.logger = logger;
 
             try {
-                RequestOptions options = optionsFn.apply(sr);
-                SearchResponse response = withRetry(() -> client.search(sr, options), retries);
+                SearchResponse<JsonData> response = withRetry(
+                        () -> requestClient(searchRequest).search(searchRequest, JsonData.class), retries);
 
-                // These should be always present, even when there are no results
-                hits = requireNonNull(response.getHits(), "null hits in the response");
-                scrollId = response.getScrollId();
-                if (scrollId == null && hits.getHits().length > 0) {
-                    throw new IllegalStateException("Unexpected response: returned scrollId is null, but hits.length " +
-                            "is not zero (" + hits.getHits().length + "). Please file a bug.");
+                HitsMetadata<JsonData> hitsMetadata = requireNonNull(
+                        response.hits(), "null hits in the response");
+                hits = hitsMetadata.hits();
+                scrollId = response.scrollId();
+                if (scrollId == null && !hits.isEmpty()) {
+                    throw new IllegalStateException("Unexpected response: returned scrollId is null, but hits.size "
+                            + "is not zero (" + hits.size() + "). Please file a bug.");
                 }
 
-                TotalHits totalHits = hits.getTotalHits();
+                TotalHits totalHits = hitsMetadata.total();
                 if (totalHits != null) {
-                    logger.fine("Initialized scroll with scrollId " + scrollId + ", total results " +
-                            totalHits.relation + ", " + totalHits.value);
+                    logger.fine("Initialized scroll with scrollId " + scrollId + ", total results "
+                            + totalHits.relation() + ", " + totalHits.value());
                 }
             } catch (Exception e) {
                 throw new JetException("Could not execute SearchRequest to Elastic", e);
@@ -187,32 +197,31 @@ final class ElasticSourceP<T> extends AbstractProcessor {
         }
 
         @Override
-        public SearchHit next() {
-            if (hits.getHits().length == 0) {
+        public Hit<JsonData> next() {
+            if (hits.isEmpty()) {
                 scrollId = null;
                 return null;
             }
 
-            if (nextHit >= hits.getHits().length) {
+            if (nextHit >= hits.size()) {
                 try {
-                    SearchScrollRequest ssr = new SearchScrollRequest(scrollId);
-                    ssr.scroll(scrollKeepAlive);
-
-                    SearchResponse searchResponse = withRetry(
-                            () -> client.scroll(ssr, optionsFn.apply(ssr)),
-                            retries
-                    );
-                    hits = searchResponse.getHits();
-                    if (hits.getHits().length == 0) {
+                    ScrollRequest request = ScrollRequest.of(scroll -> scroll
+                            .scrollId(scrollId)
+                            .scroll(time -> time.time(scrollKeepAlive)));
+                    ScrollResponse<JsonData> response = withRetry(
+                            () -> requestClient(request).scroll(request, JsonData.class), retries);
+                    hits = response.hits().hits();
+                    scrollId = response.scrollId();
+                    if (hits.isEmpty()) {
                         return null;
                     }
                     nextHit = 0;
                 } catch (Exception e) {
-                    throw new JetException("Could not execute SearchScrollRequest to Elastic", e);
+                    throw new JetException("Could not execute ScrollRequest to Elastic", e);
                 }
             }
 
-            return hits.getAt(nextHit++);
+            return hits.get(nextHit++);
         }
 
         public void close() {
@@ -222,24 +231,25 @@ final class ElasticSourceP<T> extends AbstractProcessor {
             }
         }
 
-        private void clearScroll(String scrollId) {
-            ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
-            clearScrollRequest.addScrollId(scrollId);
+        private void clearScroll(String id) {
+            ClearScrollRequest request = ClearScrollRequest.of(clear -> clear.scrollId(id));
             try {
                 ClearScrollResponse response = withRetry(
-                        () -> client.clearScroll(clearScrollRequest, optionsFn.apply(clearScrollRequest)),
-                        retries
-                );
+                        () -> requestClient(request).clearScroll(request), retries);
 
-                if (response.isSucceeded()) {
-                    logger.fine("Succeeded clearing %s scrolls", response.getNumFreed());
+                if (response.succeeded()) {
+                    logger.fine("Succeeded clearing %s scrolls", response.numFreed());
                 } else {
-                    logger.warning("Clearing scroll " + scrollId + " failed");
+                    logger.warning("Clearing scroll " + id + " failed");
                 }
             } catch (Exception e) {
-                logger.fine("Could not clear scroll with scrollId=" + scrollId, e);
+                logger.fine("Could not clear scroll with scrollId=" + id, e);
             }
         }
-    }
 
+        private ElasticsearchClient requestClient(RequestBase request) {
+            TransportOptions options = configuration.optionsFn().apply(request);
+            return options == null ? client : client.withTransportOptions(options);
+        }
+    }
 }

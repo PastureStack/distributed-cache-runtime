@@ -16,30 +16,25 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.function.SupplierEx;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.message.BasicHeader;
 
 import javax.annotation.Nonnull;
-
-import static org.apache.http.auth.AuthScope.ANY;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /**
- * Collection of convenience factory methods for Elastic's {@link RestClientBuilder}
+ * Convenience factories for the supported Elasticsearch REST 5 client.
  * <p>
- * Supposed to be used as a parameter to {@link ElasticSourceBuilder#clientFn(SupplierEx)}
- * and {@link ElasticSinkBuilder#clientFn(SupplierEx)}, for example:
- * <pre>{@code
- * builder.clientFn(() -> client());
- * }</pre>
- *
- * @deprecated <a href="https://www.elastic.co/support/eol"> Elasticsearch 7 is no longer supported</a>
+ * The returned builder is intended for
+ * {@link ElasticSourceBuilder#clientFn(SupplierEx)} and
+ * {@link ElasticSinkBuilder#clientFn(SupplierEx)}.
  */
-@Deprecated(forRemoval = true, since = "5.7")
 public final class ElasticClients {
 
     private static final int DEFAULT_PORT = 9200;
@@ -47,52 +42,31 @@ public final class ElasticClients {
     private ElasticClients() {
     }
 
-    /**
-     * Create Elastic client for an instance running on localhost
-     * on default port (9200)
-     */
+    /** Creates a client builder for {@code http://localhost:9200}. */
     @Nonnull
-    public static RestClientBuilder client() {
+    public static Rest5ClientBuilder client() {
         return client("localhost", DEFAULT_PORT);
     }
 
     /**
-     * Convenience method to create {@link RestClientBuilder} with given string, it must contain host, and optionally
-     * the scheme and a port.
-     * <p>
-     * Valid examples:
-     * <pre>{@code elastic-host
-     * elastic-host:9200
-     * http://elastic-host:9200}</pre>
-     *
-     * @see HttpHost#create(String)
-     * @since Jet 4.3
+     * Creates a client builder for a location containing a host and,
+     * optionally, a scheme and port. HTTP is used when the scheme is omitted.
      */
     @Nonnull
-    public static RestClientBuilder client(@Nonnull String location) {
-        return RestClient.builder(HttpHost.create(location));
+    public static Rest5ClientBuilder client(@Nonnull String location) {
+        String normalized = location.contains("://") ? location : "http://" + location;
+        return Rest5Client.builder(URI.create(normalized));
     }
 
-    /**
-     * Convenience method to create {@link RestClientBuilder} with given
-     * hostname and port
-     */
+    /** Creates an HTTP client builder for the given host and port. */
     @Nonnull
-    public static RestClientBuilder client(@Nonnull String hostname, int port) {
-        return RestClient.builder(new HttpHost(hostname, port));
+    public static Rest5ClientBuilder client(@Nonnull String hostname, int port) {
+        return Rest5Client.builder(new HttpHost("http", hostname, port));
     }
 
-    /**
-     * Convenience method to create {@link RestClientBuilder} with basic authentication
-     * and given hostname and port
-     * <p>
-     * Usage:
-     * <pre>{@code
-     * BatchSource<SearchHit> source = elastic(() -> client("user", "password", "host", 9200));
-     * }</pre>
-     */
+    /** Creates an HTTP client builder with basic authentication. */
     @Nonnull
-    public static RestClientBuilder client(
+    public static Rest5ClientBuilder client(
             @Nonnull String username,
             @Nonnull String password,
             @Nonnull String hostname,
@@ -100,28 +74,23 @@ public final class ElasticClients {
     ) {
         return client(username, password, hostname, port, "http");
     }
+
     /**
-     * Convenience method to create {@link RestClientBuilder} with basic authentication
-     * and given hostname, port and scheme. Valid schemes are "http" and "https".
-     * <p>
-     * Usage:
-     * <pre>{@code
-     * BatchSource<SearchHit> source = elastic(() -> client("user", "password", "host", 9200, "https"));
-     * }</pre>
+     * Creates a client builder with basic authentication and an explicit
+     * {@code http} or {@code https} scheme.
      */
     @Nonnull
-    public static RestClientBuilder client(
+    public static Rest5ClientBuilder client(
             @Nonnull String username,
             @Nonnull String password,
             @Nonnull String hostname,
             int port,
             @Nonnull String scheme
     ) {
-        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(ANY, new UsernamePasswordCredentials(username, password));
-        return RestClient.builder(new HttpHost(hostname, port, scheme))
-                         .setHttpClientConfigCallback(httpClientBuilder ->
-                                 httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
-                         );
+        String token = Base64.getEncoder().encodeToString(
+                (username + ':' + password).getBytes(StandardCharsets.UTF_8));
+        Header[] headers = {new BasicHeader("Authorization", "Basic " + token)};
+        return Rest5Client.builder(new HttpHost(scheme, hostname, port))
+                          .setDefaultHeaders(headers);
     }
 }

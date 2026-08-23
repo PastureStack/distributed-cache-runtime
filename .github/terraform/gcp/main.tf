@@ -123,7 +123,7 @@ resource "google_compute_instance" "hazelcast_member" {
   zone                      = var.zone
   boot_disk {
     initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2204-lts"
+      image = "ubuntu-os-cloud/ubuntu-2404-lts-amd64"
     }
   }
 
@@ -225,7 +225,7 @@ resource "google_compute_instance" "hazelcast_mancenter" {
   zone                      = var.zone
   boot_disk {
     initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2204-lts"
+      image = "ubuntu-os-cloud/ubuntu-2404-lts-amd64"
     }
   }
 

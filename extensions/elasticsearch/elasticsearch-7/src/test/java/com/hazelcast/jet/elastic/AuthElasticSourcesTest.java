@@ -16,6 +16,9 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.transport.rest5_client.low_level.ResponseException;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.client.test.TestHazelcastFactory;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.function.SupplierEx;
@@ -25,10 +28,6 @@ import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.test.IgnoreInJenkinsOnWindows;
 import com.hazelcast.jet.test.SerialTest;
 import com.hazelcast.test.annotation.NightlyTest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.search.SearchHit;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -51,7 +50,7 @@ public class AuthElasticSourcesTest extends BaseElasticTest {
         factory.terminateAll();
     }
 
-    @Override protected SupplierEx<RestClientBuilder> elasticClientSupplier() {
+    @Override protected SupplierEx<Rest5ClientBuilder> elasticClientSupplier() {
         return ElasticSupport.secureElasticClientSupplier();
     }
 
@@ -102,11 +101,11 @@ public class AuthElasticSourcesTest extends BaseElasticTest {
     }
 
     @Nonnull
-    private BatchSource<String> elasticSource(SupplierEx<RestClientBuilder> clientFn) {
+    private BatchSource<String> elasticSource(SupplierEx<Rest5ClientBuilder> clientFn) {
         return ElasticSources.builder()
                              .clientFn(clientFn)
-                             .searchRequestFn(SearchRequest::new)
-                             .mapToItemFn(SearchHit::getSourceAsString)
+                             .searchRequestFn(() -> SearchRequest.of(request -> request))
+                             .mapToItemFn(hit -> hit.source().toJson().toString())
                              .retries(0)
                              .build();
     }

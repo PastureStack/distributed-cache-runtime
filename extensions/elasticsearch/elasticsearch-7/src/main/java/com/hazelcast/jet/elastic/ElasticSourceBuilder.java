@@ -16,19 +16,19 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch._types.RequestBase;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonData;
+import co.elastic.clients.transport.DefaultTransportOptions;
+import co.elastic.clients.transport.TransportOptions;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.elastic.impl.ElasticSourceConfiguration;
 import com.hazelcast.jet.elastic.impl.ElasticSourcePMetaSupplier;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.Sources;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.search.SearchHit;
-
 import javax.annotation.Nonnull;
 
 import static com.hazelcast.jet.impl.util.Util.checkNonNullAndSerializable;
@@ -37,14 +37,14 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Builder for Elasticsearch source which reads data from Elasticsearch and
- * converts SearchHits using provided {@code mapToItemFn}
+ * converts search hits using the provided {@code mapToItemFn}
  * <p>
  * Usage:
  * <pre>{@code
  * BatchSource<String> source = new ElasticSourceBuilder<String>()
  *   .clientFn(() -> client(host, port))
- *   .searchRequestFn(() -> new SearchRequest("my-index"))
- *   .mapToItemFn(SearchHit::getSourceAsString)
+ *   .searchRequestFn(() -> SearchRequest.of(r -> r.index("my-index")))
+ *   .mapToItemFn(hit -> hit.source().toJson().toString())
  *   .build();
  *
  * BatchStage<String> stage = p.readFrom(source);
@@ -53,20 +53,18 @@ import static java.util.Objects.requireNonNull;
  * Requires {@link #clientFn(SupplierEx)},
  * {@link #searchRequestFn(SupplierEx)} and {@link #mapToItemFn(FunctionEx)}.
  *
- * @param <T> type of the output of the mapping function from {@link SearchHit} -> T
+ * @param <T> type of the output of the mapping function from {@link Hit} -> T
  * @since Jet 4.2
- * @deprecated <a href="https://www.elastic.co/support/eol"> Elasticsearch 7 is no longer supported</a>
  */
-@Deprecated(forRemoval = true, since = "5.7")
 public final class ElasticSourceBuilder<T> {
 
     private static final String DEFAULT_NAME = "elasticSource";
     private static final int DEFAULT_RETRIES = 5;
 
-    private SupplierEx<RestClientBuilder> clientFn;
+    private SupplierEx<Rest5ClientBuilder> clientFn;
     private SupplierEx<SearchRequest> searchRequestFn;
-    private FunctionEx<? super ActionRequest, RequestOptions> optionsFn = request -> RequestOptions.DEFAULT;
-    private FunctionEx<? super SearchHit, T> mapToItemFn;
+    private FunctionEx<? super RequestBase, TransportOptions> optionsFn = request -> DefaultTransportOptions.EMPTY;
+    private FunctionEx<? super Hit<JsonData>, T> mapToItemFn;
     private boolean slicing;
     private boolean coLocatedReading;
     private String scrollKeepAlive = "1m"; // Using String because it needs to be Serializable
@@ -84,17 +82,11 @@ public final class ElasticSourceBuilder<T> {
         requireNonNull(mapToItemFn, "mapToItemFn must be set");
 
         ElasticSourceConfiguration<T> configuration = new ElasticSourceConfiguration<>(
-                restHighLevelClientFn(clientFn),
-                searchRequestFn, optionsFn, mapToItemFn, slicing, coLocatedReading,
+                clientFn, searchRequestFn, optionsFn, mapToItemFn, slicing, coLocatedReading,
                 scrollKeepAlive, retries
         );
         ElasticSourcePMetaSupplier<T> metaSupplier = new ElasticSourcePMetaSupplier<>(configuration);
         return Sources.batchFromProcessor(DEFAULT_NAME, metaSupplier);
-    }
-
-    // Don't inline - it would capture this.clientFn and would need to serialize whole builder instance
-    private SupplierEx<RestHighLevelClient> restHighLevelClientFn(SupplierEx<RestClientBuilder> clientFn) {
-        return () -> new RestHighLevelClient(clientFn.get());
     }
 
     /**
@@ -115,7 +107,7 @@ public final class ElasticSourceBuilder<T> {
      *                 REST client
      */
     @Nonnull
-    public ElasticSourceBuilder<T> clientFn(@Nonnull SupplierEx<RestClientBuilder> clientFn) {
+    public ElasticSourceBuilder<T> clientFn(@Nonnull SupplierEx<Rest5ClientBuilder> clientFn) {
         this.clientFn = checkNonNullAndSerializable(clientFn, "clientFn");
         return this;
     }
@@ -128,7 +120,7 @@ public final class ElasticSourceBuilder<T> {
      * <p>
      * For example, to create SearchRequest limited to an index `logs`:
      * <pre>{@code
-     * builder.searchRequestFn(() -> new SearchRequest("logs"))
+     * builder.searchRequestFn(() -> SearchRequest.of(r -> r.index("logs")))
      * }</pre>
      *
      * This parameter is required.
@@ -142,11 +134,11 @@ public final class ElasticSourceBuilder<T> {
     }
 
     /**
-     * Set the function to map SearchHit to a pipeline item
+     * Set the function to map a search hit to a pipeline item
      * <p>
      * For example, to map a SearchHit to a value of a field `productId`:
      * <pre>{@code
-     * builder.mapToItemFn(hit -> (String) hit.getSourceAsMap().get("productId"))
+     * builder.mapToItemFn(hit -> hit.source().to(Map.class).get("productId"))
      * }</pre>
      *
      * This parameter is required.
@@ -155,33 +147,34 @@ public final class ElasticSourceBuilder<T> {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T_NEW> ElasticSourceBuilder<T_NEW> mapToItemFn(@Nonnull FunctionEx<? super SearchHit, T_NEW> mapToItemFn) {
+    public <T_NEW> ElasticSourceBuilder<T_NEW> mapToItemFn(
+            @Nonnull FunctionEx<? super Hit<JsonData>, T_NEW> mapToItemFn
+    ) {
         ElasticSourceBuilder<T_NEW> newThis = (ElasticSourceBuilder<T_NEW>) this;
         newThis.mapToItemFn = checkSerializable(mapToItemFn, "mapToItemFn");
         return newThis;
     }
 
     /**
-     * Set the function that provides {@link RequestOptions}
+     * Set the function that provides per-request {@link TransportOptions}
      * <p>
      * It can either return a constant value or a value based on provided request.
      * <p>
      * For example, use this to provide a custom authentication header:
      * <pre>{@code
      * sourceBuilder.optionsFn((request) -> {
-     *     RequestOptions.Builder builder = RequestOptions.DEFAULT.toBuilder();
-     *     builder.addHeader("Authorization", "Bearer " + TOKEN);
-     *     return builder.build();
+     *     return DefaultTransportOptions.EMPTY.toBuilder()
+     *             .addHeader("Authorization", "Bearer " + TOKEN)
+     *             .build();
      * })
      * }</pre>
      *
-     * @param optionsFn function that provides {@link RequestOptions}
-     * @see <a
-     * href="https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-low-usage-requests.html">
-     * RequestOptions in Elastic documentation</a>
+     * @param optionsFn function that provides {@link TransportOptions}
      */
     @Nonnull
-    public ElasticSourceBuilder<T> optionsFn(@Nonnull FunctionEx<? super ActionRequest, RequestOptions> optionsFn) {
+    public ElasticSourceBuilder<T> optionsFn(
+            @Nonnull FunctionEx<? super RequestBase, TransportOptions> optionsFn
+    ) {
         this.optionsFn = checkSerializable(optionsFn, "optionsFn");
         return this;
     }
@@ -221,7 +214,7 @@ public final class ElasticSourceBuilder<T> {
      * Set the keepAlive for Elastic search scroll
      * <p>
      * The value must be in Elastic time unit format, e.g. 500ms for 500 milliseconds, 30s for 30 seconds,
-     * 5m for 5 minutes. See {@link SearchRequest#scroll(String)}.
+     * 5m for 5 minutes.
      *
      * @param scrollKeepAlive keepAlive value, this must be high enough to
      *                        process all results from a single scroll, default

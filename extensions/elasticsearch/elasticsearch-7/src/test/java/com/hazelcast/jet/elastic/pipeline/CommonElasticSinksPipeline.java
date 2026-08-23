@@ -16,6 +16,10 @@
 
 package com.hazelcast.jet.elastic.pipeline;
 
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.elastic.CommonElasticSinksTest.TestItem;
 import com.hazelcast.jet.elastic.ElasticSinkBuilder;
@@ -23,12 +27,8 @@ import com.hazelcast.jet.elastic.ElasticSinks;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.TestSources;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.client.RestClientBuilder;
+
+import static java.util.Collections.emptyList;
 
 public final class CommonElasticSinksPipeline {
 
@@ -37,14 +37,15 @@ public final class CommonElasticSinksPipeline {
 
     public static Pipeline writeItemsToIndexPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             TestItem... items) {
         Pipeline p = Pipeline.create();
 
         Sink<TestItem> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(elasticSupplier)
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((TestItem item) -> new IndexRequest(index).source(item.asMap()))
+                .bulkRequestFn(CommonElasticSinksPipeline::immediateBulkRequest)
+                .mapToRequestFn((TestItem item) -> BulkOperation.of(operation -> operation
+                        .index(request -> request.index(index).document(item.asMap()))))
                 .build();
 
         p.readFrom(TestSources.items(items))
@@ -55,13 +56,14 @@ public final class CommonElasticSinksPipeline {
 
     public static Pipeline writeItemsToIndexUsingSourceFactoryMethodPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             TestItem... items) {
         Pipeline p = Pipeline.create();
 
         Sink<TestItem> elasticSink = ElasticSinks.elastic(
                 elasticSupplier,
-                item -> new IndexRequest(index).source(item.asMap())
+                item -> BulkOperation.of(operation -> operation
+                        .index(request -> request.index(index).document(item.asMap())))
         );
 
         p.readFrom(TestSources.items(items))
@@ -72,14 +74,18 @@ public final class CommonElasticSinksPipeline {
 
     public static Pipeline updateItemsInIndexPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             TestItem... items) {
         Pipeline p = Pipeline.create();
 
         Sink<TestItem> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(elasticSupplier)
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((TestItem item) -> new UpdateRequest(index, item.getId()).doc(item.asMap()))
+                .bulkRequestFn(CommonElasticSinksPipeline::immediateBulkRequest)
+                .mapToRequestFn((TestItem item) -> BulkOperation.of(operation -> operation
+                        .update(request -> request
+                                .index(index)
+                                .id(item.getId())
+                                .action(action -> action.doc(item.asMap())))))
                 .retries(0)
                 .build();
 
@@ -91,19 +97,26 @@ public final class CommonElasticSinksPipeline {
 
     public static Pipeline deleteItemsFromIndexPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             TestItem... items) {
         Pipeline p = Pipeline.create();
 
         Sink<TestItem> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(elasticSupplier)
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((TestItem item) -> new DeleteRequest(index, item.getId()))
+                .bulkRequestFn(CommonElasticSinksPipeline::immediateBulkRequest)
+                .mapToRequestFn((TestItem item) -> BulkOperation.of(operation -> operation
+                        .delete(request -> request.index(index).id(item.getId()))))
                 .build();
 
         p.readFrom(TestSources.items(items))
          .writeTo(elasticSink);
 
         return p;
+    }
+
+    private static BulkRequest immediateBulkRequest() {
+        return BulkRequest.of(request -> request
+                .refresh(Refresh.True)
+                .operations(emptyList()));
     }
 }

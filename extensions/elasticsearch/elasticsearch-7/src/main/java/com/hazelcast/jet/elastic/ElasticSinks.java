@@ -16,11 +16,11 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.pipeline.Sink;
-import org.elasticsearch.action.DocWriteRequest;
-import org.elasticsearch.client.RestClientBuilder;
 
 import javax.annotation.Nonnull;
 
@@ -29,9 +29,7 @@ import javax.annotation.Nonnull;
  * Alternatively you can use {@link ElasticSinkBuilder}
  *
  * @since Jet 4.2
- * @deprecated <a href="https://www.elastic.co/support/eol"> Elasticsearch 7 is no longer supported</a>
  */
-@Deprecated(forRemoval = true, since = "5.7")
 public final class ElasticSinks {
 
     private ElasticSinks() {
@@ -42,7 +40,8 @@ public final class ElasticSinks {
      * <p>
      * Usage:
      * <pre>{@code Sink<Map<String, Object>> sink = ElasticSinks.elastic(
-     *   map -> new IndexRequest("my-index").source(map)
+     *   map -> BulkOperation.of(op -> op.index(index ->
+     *       index.index("my-index").document(map)))
      * );}</pre>
      *
      * @param mapToRequestFn function that maps an item from a pipeline
@@ -50,7 +49,7 @@ public final class ElasticSinks {
      */
     @Nonnull
     public static <T> Sink<T> elastic(
-            @Nonnull FunctionEx<? super T, ? extends DocWriteRequest<?>> mapToRequestFn
+            @Nonnull FunctionEx<? super T, ? extends BulkOperation> mapToRequestFn
     ) {
         return elastic(ElasticClients::client, mapToRequestFn);
     }
@@ -62,17 +61,18 @@ public final class ElasticSinks {
      * Usage:
      * <pre>Sink&lt;Map&lt;String, Object&gt;&gt; sink = ElasticSinks.elastic(
      *   () -> ElasticClients.client("es-host", 9200),
-     *   map -> new IndexRequest("my-index").source(map)
+     *   map -> BulkOperation.of(op -> op.index(index ->
+     *       index.index("my-index").document(map)))
      * );</pre>
      *
-     * @param clientFn       supplier function returning configured RestClientBuilder
+     * @param clientFn       supplier function returning configured Rest5ClientBuilder
      * @param mapToRequestFn function that maps an item from a pipeline to an indexing request
      * @param <T>            type of incoming items
      */
     @Nonnull
     public static <T> Sink<T> elastic(
-            @Nonnull SupplierEx<RestClientBuilder> clientFn,
-            @Nonnull FunctionEx<? super T, ? extends DocWriteRequest<?>> mapToRequestFn
+            @Nonnull SupplierEx<Rest5ClientBuilder> clientFn,
+            @Nonnull FunctionEx<? super T, ? extends BulkOperation> mapToRequestFn
     ) {
         // Avoid ElasticSinkBuilder<? super T> inferred from mapToRequestFn
         ElasticSinkBuilder<T> builder = new ElasticSinkBuilder<>()

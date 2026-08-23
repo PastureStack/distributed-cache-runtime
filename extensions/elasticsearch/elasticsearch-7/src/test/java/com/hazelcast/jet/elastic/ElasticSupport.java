@@ -16,9 +16,9 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.impl.util.Util;
-import org.elasticsearch.client.RestClientBuilder;
 import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -30,7 +30,7 @@ import static com.hazelcast.jet.elastic.ElasticClients.client;
 
 public final class ElasticSupport {
 
-    public static final String TEST_ELASTIC_VERSION = System.getProperty("test.elastic.version", "7.17.7");
+    public static final String TEST_ELASTIC_VERSION = System.getProperty("test.elastic.version", "9.5.1");
 
     public static final DockerImageName ELASTICSEARCH_IMAGE = DockerImageName
             .parse("docker.elastic.co/elasticsearch/elasticsearch:" + TEST_ELASTIC_VERSION);
@@ -44,6 +44,8 @@ public final class ElasticSupport {
         ElasticsearchContainer elastic = new ElasticsearchContainer(ELASTICSEARCH_IMAGE)
                 .withNetwork(network)
                 .withNetworkAliases("elastic")
+                .withEnv("xpack.security.enabled", "false")
+                .withEnv("xpack.security.http.ssl.enabled", "false")
                 .withStartupTimeout(Duration.ofMinutes(2L));
         elastic.start();
         Runtime.getRuntime().addShutdownHook(new Thread(elastic::stop));
@@ -68,14 +70,14 @@ public final class ElasticSupport {
     private ElasticSupport() {
     }
 
-    public static SupplierEx<RestClientBuilder> elasticClientSupplier() {
+    public static SupplierEx<Rest5ClientBuilder> elasticClientSupplier() {
         ElasticsearchContainer container = elastic.get();
         String containerHost = container.getHost();
         Integer port = container.getMappedPort(PORT);
         return () -> client(containerHost, port);
     }
 
-    public static SupplierEx<RestClientBuilder> secureElasticClientSupplier() {
+    public static SupplierEx<Rest5ClientBuilder> secureElasticClientSupplier() {
         ElasticsearchContainer container = elastic.get();
         String containerHost = container.getHost();
         Integer port = container.getMappedPort(PORT);

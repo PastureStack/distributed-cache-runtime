@@ -30,7 +30,7 @@
     <parent>
         <groupId>com.hazelcast.jet</groupId>
         <artifactId>hazelcast-jet-extensions</artifactId>
-        <version>5.7.2</version>
+        <version>5.7.3</version>
     </parent>
 
     <properties>
@@ -70,6 +70,16 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Avro 1.12.2 blocks schema-directed class loading by default. Trust only our test fixtures. -->
+                    <systemPropertyVariables>
+                        <org.apache.avro.SERIALIZABLE_CLASSES>com.hazelcast.jet.avro.model.User,com.hazelcast.jet.avro.generated.SpecificUser</org.apache.avro.SERIALIZABLE_CLASSES>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

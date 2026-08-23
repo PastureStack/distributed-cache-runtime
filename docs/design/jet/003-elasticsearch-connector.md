@@ -5,206 +5,98 @@ description: Elasticsearch Connector (source and sink)
 
 *Since*: 4.2
 
-## Background
+## Current implementation
 
-Existing Elasticsearch connector doesn't support all features expected
-of production ready connector. It is not well covered with automated
-tests.
+The connector uses Elastic's supported Java API Client and its REST 5
+transport. The Maven artifactId and source directory retain the historical
+`elasticsearch-7` suffix for coordinate compatibility only; the runtime does
+not contain the Elasticsearch 7 High Level REST Client.
 
-## Implementation
+The current client line requires Java 17 and targets Elasticsearch 9. The
+client version is declared by `elasticsearch.java.version` in the connector
+POM so the implementation and test container remain aligned.
 
-### Choice of Client
+## Choice of client
 
-Elasticsearch provides two Java clients:
+The Java API Client provides typed, immutable request and response objects,
+while the REST 5 transport owns HTTP communication. This keeps the connector
+on Elastic's supported API instead of maintaining a separate JSON protocol
+implementation. The `_cat/nodes` and `_cat/shards` calls needed for
+co-location are issued through the REST 5 low-level client because they are
+not part of the typed client surface used by the connector.
 
-#### Java Low Level REST Client
+## Factory methods and builders
 
-- has minimal dependencies
-- must parse all json responses ourselves (and update during upgrades)
-- [Low level client](https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-low.html)
-
-#### Java High Level REST Client
-
-- This client usually used by elasticsearch users from Java
-- [High level client](https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-high.html)
-
-Pros:
-
-- Provides users with API they already know and use, e.g.
+The factory methods cover common cases. For example, a source that reads one
+index and maps each hit to a JSON string is:
 
 ```java
-p.readFrom(ElasticSources.elasticsearch("users", () -> createClient(containerAddress),
-  () -> {
-      SearchRequest searchRequest = new SearchRequest("users");
-      SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-      searchSourceBuilder.query(termQuery("age", 8));
-      searchRequest.source(searchSourceBuilder);
-      return searchRequest;
-})).writeTo(Sinks.list("sink"));
+BatchSource<String> source = ElasticSources.elastic(
+    () -> ElasticClients.client("localhost", 9200),
+    () -> SearchRequest.of(r -> r.index("users")),
+    hit -> hit.source().toJson().toString()
+);
 ```
 
-- Reduces our maintenance - the client is published with new
-  elasticsearch versions, any updates to the REST api are included in
-  the new client. If there are changes to the client’s java API then
-  these will be likely easier than updating custom implementation.
-
-Cons:
-
-- The client has 40 MB of dependencies.
-- Doesn't actually support all APIs we need - the shard api is
-  missing, but this can be implemented using the low level client
-  the following way:
+A sink maps every pipeline item to a Java Client bulk operation:
 
 ```java
-Request r = new Request("GET", "/_cat/shards/" + String.join(",", sr.indices()));
-r.addParameter("format", "json");
-Response res = client.getLowLevelClient().performRequest(r);
-try (InputStreamReader reader =
-        new InputStreamReader(res.getEntity().getContent())) {
-    JsonArray array = Json.parse(reader).asArray();
-    ....
+Sink<Map<String, Object>> sink = ElasticSinks.elastic(
+    () -> ElasticClients.client("localhost", 9200),
+    item -> BulkOperation.of(op -> op.index(index -> index
+        .index("users")
+        .document(item)))
+);
 ```
 
-Any custom client implementation would use Elastic REST API, same as the
-high level rest client and would likely be very similar in terms of API,
-so swapping out later for custom implementation should not be difficult.
-
-Based on these arguments we chose to use the **High Level REST Client**
-
-### Factory method vs builder
-
-This is the current API for all connector settings:
+The builders expose settings that do not belong in the compact factory API,
+including slicing, co-located reads, request options, retry count, scroll
+keep-alive and bulk-request settings:
 
 ```java
-public static <T> BatchSource<T> elasticsearch(
-      @Nonnull String name,
-      @Nonnull SupplierEx<? extends RestHighLevelClient> clientSupplier,
-      @Nonnull SupplierEx<SearchRequest> searchRequestSupplier,
-      @Nonnull String scrollTimeout,
-      @Nonnull FunctionEx<SearchHit, T> mapHitFn,
-      @Nonnull FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
-      @Nonnull ConsumerEx<? super RestHighLevelClient> destroyFn
-) {
+BatchSource<String> source = new ElasticSourceBuilder<String>()
+    .clientFn(() -> ElasticClients.client("localhost", 9200))
+    .searchRequestFn(() -> SearchRequest.of(r -> r.index("my-index-*")))
+    .optionsFn(request -> DefaultTransportOptions.EMPTY)
+    .mapToItemFn(hit -> hit.source().toJson().toString())
+    .enableSlicing()
+    .build();
 ```
 
-New requirements introduce additional settings (slicing, co-located
-reading, ..) which would make the list of parameters too long. A builder
-class is implemented for both the source and sink to provide same
-experience.
+The API accepts `SupplierEx<SearchRequest>` because Java Client requests are
+immutable and each processor must receive its own request instance. The
+connector uses `rebuild()` to add scroll, slicing and shard-preference fields
+without changing the caller's template.
 
-Full example:
+## Slicing
 
-```java
-BatchSource<String> elasticSource = new ElasticSourceBuilder<String>()
-  .name("my-elastic-source")
-  .clientFn(elasticClientSupplier())
-  .searchRequestFn(() -> new SearchRequest("my-index-*"))
-  .optionsFn(request -> RequestOptions.DEFAULT)
-  .mapToItemFn(SearchHit::getSourceAsString)
-  .slicing(true)
-  .build();
-```
+Slicing parallelizes reads. Without co-location, slice IDs use global
+processor coordinates. With co-location, they use local processor
+coordinates so each Elasticsearch node receives the expected local slices.
+The number of slices should normally not exceed the number of shards because
+excess slices add initial latency and server-side memory use. See Elastic's
+[sliced scroll documentation](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/paginate-search-results#sliced-scroll).
 
-Minimal example:
+## Co-located reads
 
-```java
-BatchSource<String> elasticSource = new ElasticSourceBuilder<String>()
-  .clientFn(() -> client("elastic", "password", "localhost", 9200))
-  .searchRequestFn(SearchRequest::new)
-  .mapToItemFn(SearchHit::getSourceAsString)
-  .build();
-```
+When Hazelcast and Elasticsearch run on the same hosts, the connector assigns
+shards to matching Hazelcast members. Each processor restricts its REST 5
+client to the assigned local Elasticsearch node and applies an
+`_shards:...|_only_local` preference. Every primary/replica shard identity is
+assigned once, preventing duplicate reads.
 
-### SearchRequest vs SupplierEx<SearchRequest>
+## Authentication and request options
 
-It was suggested during the review that we could leverage Elastic's Writable
-to serialize the search request to avoid the use of a supplier. It wasn't
-implemented in the end for following reasons:
-
-- the serialization/deserialization is different across Elastic
- versions, making it harder to maintain
-- the deserialization requires non-trivial setup, consisting of
- internals of Elastic transport (communication between Elastic nodes) classes.
-
-## New features
-
-### Slicing
-
-Slicing is used to parallelize read from Elasticsearch. See: [Sliced scroll](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html#sliced-scroll)
-
-To provide maximum performance the number of slices should be less than
-number of shards.
-
-Each processor reads one or more shards. If there are not enough shards
-then some processors don’t read any data.
-
-It is possible to create more slices than shards, but it has high
-initial latency and consumes more memory on Elasticsearch side. See
-linked documentation.
-
-### Co-located read/write
-
-In deployment scenario where Jet Cluster and Elasticsearch cluster run
-on the same set of nodes it is beneficial to read from local
-Elasticsearch node.
-
-This is done by setting nodes of low level client to local node only
-
-```java
-client.getLowLevelClient().setNodes(...);
-```
-
-and setting preference on the search request
-
-```java
-sr.preference("_shards:0|_only_local");
-```
-
-This also limits reading to shard 0 only, which is needed to ensure
-single shard replica is read by one processor.
-
-### Assignment of shards
-
-Shard numbers are not unique, shard is identified by index name and
-shard number. Shard has a primary and 0 or more replicas.
-
-`ElasticProcessorMetaSupplier` reads all available shards for given search
-request `/_cat/shards/indexes-from-search-request*`. Shards located on
-each node become candidates. A shard from list of candidates is assigned
-to a node, iterating over all nodes. Assigned shard is removed from list
-of candidates. Assignment is finished when all shards are assigned (to
-exactly 1 node).
-
-## Authentication
-
-Because we use the High Level REST client users use the same
-authentication methods as they normally would.
-A convenience factory method for authenticated client for basic
-authentication is provided:
-
-```java
-public static RestHighLevelClient client(
-  @Nonnull String username,
-  @Nullable String password,
-  @Nonnull String hostname,
-  int port
-)
-```
+`ElasticClients.client(username, password, hostname, port, scheme)` creates a
+REST 5 builder with a UTF-8 Basic authorization header. Applications needing
+TLS material, bearer tokens or other HTTP customization can configure the
+returned `Rest5ClientBuilder`. Per-request headers and timeouts can be supplied
+through `optionsFn`, which returns `TransportOptions`.
 
 ## Testing
 
-Code which can be tested in isolation is covered by unit tests (e.g.
-partition assignment).
-
-Most tests are actually integration tests. Testcontainers library is
-used for integration testing to run Elasticsearch.
-
-Following test hierarchy is used:
-
-- abstract `BaseElasticsearchTest` - base class for all tests of Jet
-  and Elasticsearch together,
-  no actual tests, only setup / teardown code
-- `CommonElasticSourcesTest` - tests that are to be executed on
-  all environment configurations
-- subclasses of `CommonElasticSourcesTest` which define specific
-  environment (single Jet instance, Jet cluster ..)
+Pure connector behavior is covered without Docker: builder validation, client
+shutdown, request options, scrolling, scroll cleanup, slicing, co-location,
+shard assignment and `_cat` response parsing. Container-backed integration
+tests run Elasticsearch using Testcontainers and cover end-to-end source,
+sink, authentication and retry behavior.

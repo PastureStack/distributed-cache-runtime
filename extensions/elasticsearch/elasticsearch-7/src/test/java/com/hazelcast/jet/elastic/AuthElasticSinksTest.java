@@ -16,6 +16,11 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.client.test.TestHazelcastFactory;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.function.SupplierEx;
@@ -26,11 +31,6 @@ import com.hazelcast.jet.pipeline.test.TestSources;
 import com.hazelcast.jet.test.IgnoreInJenkinsOnWindows;
 import com.hazelcast.jet.test.SerialTest;
 import com.hazelcast.test.annotation.NightlyTest;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest.RefreshPolicy;
-import org.elasticsearch.client.RestClientBuilder;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -40,6 +40,7 @@ import java.io.IOException;
 
 import static com.hazelcast.jet.elastic.ElasticClients.client;
 import static com.hazelcast.jet.elastic.ElasticSupport.PORT;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Category({NightlyTest.class, SerialTest.class, IgnoreInJenkinsOnWindows.class})
@@ -53,7 +54,7 @@ public class AuthElasticSinksTest extends BaseElasticTest {
     }
 
     @Override
-    protected SupplierEx<RestClientBuilder> elasticClientSupplier() {
+    protected SupplierEx<Rest5ClientBuilder> elasticClientSupplier() {
         return ElasticSupport.secureElasticClientSupplier();
     }
 
@@ -66,8 +67,8 @@ public class AuthElasticSinksTest extends BaseElasticTest {
     public void given_authenticatedClient_whenWriteToElasticSink_thenFinishSuccessfully() throws IOException {
         Sink<TestItem> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(elasticClientSupplier())
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((TestItem item) -> new IndexRequest("my-index").source(item.asMap()))
+                .bulkRequestFn(AuthElasticSinksTest::immediateBulkRequest)
+                .mapToRequestFn(AuthElasticSinksTest::indexOperation)
                 .build();
 
         Pipeline p = Pipeline.create();
@@ -87,8 +88,8 @@ public class AuthElasticSinksTest extends BaseElasticTest {
 
         Sink<TestItem> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(() -> client("elastic", "WrongPassword", containerIp, port))
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((TestItem item) -> new IndexRequest("my-index").source(item.asMap()))
+                .bulkRequestFn(AuthElasticSinksTest::immediateBulkRequest)
+                .mapToRequestFn(AuthElasticSinksTest::indexOperation)
                 .retries(0)
                 .build();
 
@@ -97,7 +98,7 @@ public class AuthElasticSinksTest extends BaseElasticTest {
          .writeTo(elasticSink);
 
         assertThatThrownBy(() -> submitJob(p))
-                .hasRootCauseInstanceOf(ElasticsearchStatusException.class)
+                .hasRootCauseInstanceOf(ElasticsearchException.class)
                 .hasStackTraceContaining("unable to authenticate user [elastic]");
     }
 
@@ -109,8 +110,8 @@ public class AuthElasticSinksTest extends BaseElasticTest {
 
         Sink<TestItem> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(() -> client(containerIp, port))
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((TestItem item) -> new IndexRequest("my-index").source(item.asMap()))
+                .bulkRequestFn(AuthElasticSinksTest::immediateBulkRequest)
+                .mapToRequestFn(AuthElasticSinksTest::indexOperation)
                 .retries(0)
                 .build();
 
@@ -119,8 +120,17 @@ public class AuthElasticSinksTest extends BaseElasticTest {
          .writeTo(elasticSink);
 
         assertThatThrownBy(() -> submitJob(p))
-                .hasRootCauseInstanceOf(ElasticsearchStatusException.class)
+                .hasRootCauseInstanceOf(ElasticsearchException.class)
                 .hasStackTraceContaining("missing authentication credentials");
+    }
+
+    private static BulkRequest immediateBulkRequest() {
+        return BulkRequest.of(request -> request.refresh(Refresh.True).operations(emptyList()));
+    }
+
+    private static BulkOperation indexOperation(TestItem item) {
+        return BulkOperation.of(operation -> operation
+                .index(request -> request.index("my-index").document(item.asMap())));
     }
 
 }

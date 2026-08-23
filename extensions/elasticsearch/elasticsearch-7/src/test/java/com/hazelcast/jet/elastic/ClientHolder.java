@@ -16,8 +16,9 @@
 
 package com.hazelcast.jet.elastic;
 
-import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
-import org.elasticsearch.client.RestClient;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.core5.reactor.IOReactorStatus;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -32,16 +33,16 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
  * Holder for created Elastic clients during tests
  */
 final class ClientHolder implements Serializable {
-    static List<RestClient> elasticClients = synchronizedList(new ArrayList<>());
+    static List<Rest5Client> elasticClients = synchronizedList(new ArrayList<>());
 
     private ClientHolder() {
     }
 
     static void assertAllClientsNotRunning() {
         assertTrueEventually(() -> {
-            for (RestClient client : elasticClients) {
+            for (Rest5Client client : elasticClients) {
                 CloseableHttpAsyncClient httpClient = getFieldValueReflectively(client, "client");
-                assertThat(httpClient.isRunning()).isFalse();
+                assertThat(httpClient.getStatus()).isEqualTo(IOReactorStatus.SHUT_DOWN);
             }
         });
     }

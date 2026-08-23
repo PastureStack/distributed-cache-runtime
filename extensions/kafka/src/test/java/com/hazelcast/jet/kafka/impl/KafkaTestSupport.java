@@ -20,11 +20,9 @@ import com.hazelcast.core.HazelcastJsonValue;
 import com.hazelcast.jet.kafka.HazelcastKafkaAvroSerializer;
 import io.confluent.kafka.schemaregistry.CompatibilityLevel;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
-import io.confluent.kafka.schemaregistry.client.rest.entities.requests.ConfigUpdateRequest;
-import io.confluent.kafka.schemaregistry.exceptions.SchemaRegistryException;
-import io.confluent.kafka.schemaregistry.rest.SchemaRegistryConfig;
-import io.confluent.kafka.schemaregistry.rest.SchemaRegistryRestApplication;
-import io.confluent.kafka.schemaregistry.storage.KafkaSchemaRegistry;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Config;
+import io.confluent.kafka.schemaregistry.testutil.MockSchemaRegistry;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.Admin;
@@ -41,7 +39,6 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.utils.Bytes;
-import org.eclipse.jetty.server.Server;
 
 import java.io.IOException;
 import java.net.URI;
@@ -61,7 +58,6 @@ import java.util.concurrent.Future;
 
 import static com.hazelcast.test.DockerTestUtil.dockerEnabled;
 import static com.hazelcast.test.HazelcastTestSupport.randomString;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -78,8 +74,8 @@ public abstract class KafkaTestSupport {
 
     private String brokerConnectionString;
     private Admin admin;
-    private Server schemaRegistryServer;
-    private KafkaSchemaRegistry schemaRegistry;
+    private String schemaRegistryScope;
+    private SchemaRegistryClient schemaRegistry;
 
     public static KafkaTestSupport create() {
         if (!dockerEnabled()) {
@@ -270,33 +266,38 @@ public abstract class KafkaTestSupport {
         return consumer;
     }
 
-    public void createSchemaRegistry(SchemaRegistryConfig config) throws Exception {
-        SchemaRegistryRestApplication schemaRegistryApplication = new SchemaRegistryRestApplication(config);
-        schemaRegistryServer = schemaRegistryApplication.createServer();
-        schemaRegistryServer.start();
-        schemaRegistry = schemaRegistryApplication.schemaRegistry();
+    public void createSchemaRegistry() {
+        schemaRegistryScope = UUID.randomUUID().toString();
+        schemaRegistry = MockSchemaRegistry.getClientForScope(schemaRegistryScope);
     }
 
-    public void shutdownSchemaRegistry() throws Exception {
-        if (schemaRegistryServer != null) {
-            schemaRegistryServer.stop();
+    public void shutdownSchemaRegistry() {
+        if (schemaRegistryScope != null) {
+            MockSchemaRegistry.dropScope(schemaRegistryScope);
+            schemaRegistryScope = null;
+            schemaRegistry = null;
         }
     }
 
     public URI getSchemaRegistryURI() {
-        return schemaRegistryServer.getURI();
+        return URI.create("mock://" + schemaRegistryScope);
     }
 
     /** Registers the specified {@code schema} and returns its ID. */
-    public int registerSchema(String subject, Schema schema) throws SchemaRegistryException {
-        return schemaRegistry.register(subject, new io.confluent.kafka.schemaregistry.client.rest.entities.Schema(
-                subject, 0, -1, AvroSchema.TYPE, emptyList(), schema.toString())).getId();
+    public int registerSchema(String subject, Schema schema) {
+        try {
+            return schemaRegistry.register(subject, new AvroSchema(schema));
+        } catch (Exception e) {
+            throw new AssertionError("Failed to register test schema for subject '" + subject + "'", e);
+        }
     }
 
-    public int getLatestSchemaVersion(String subject) throws SchemaRegistryException {
-        return Optional.ofNullable(schemaRegistry.getLatestVersion(subject)).map(
-                               io.confluent.kafka.schemaregistry.client.rest.entities.Schema::getVersion)
-                .orElseThrow(() -> new SchemaRegistryException("No schema found in subject '" + subject + "'"));
+    public int getLatestSchemaVersion(String subject) {
+        try {
+            return schemaRegistry.getLatestSchemaMetadata(subject).getVersion();
+        } catch (Exception e) {
+            throw new AssertionError("No schema found in subject '" + subject + "'", e);
+        }
     }
 
     /**
@@ -311,11 +312,12 @@ public abstract class KafkaTestSupport {
      * @see io.confluent.kafka.schemaregistry.ParsedSchema#isCompatible
      * @see io.confluent.kafka.schemaregistry.ParsedSchema#isBackwardCompatible
      */
-    public void setCompatibilityLevel(String subject, CompatibilityLevel level)
-            throws SchemaRegistryException {
-        ConfigUpdateRequest cur = new ConfigUpdateRequest();
-        cur.setCompatibilityLevel(level.name);
-        schemaRegistry.updateConfig(subject, cur);
+    public void setCompatibilityLevel(String subject, CompatibilityLevel level) {
+        try {
+            schemaRegistry.updateConfig(subject, new Config(level.name));
+        } catch (Exception e) {
+            throw new AssertionError("Failed to set schema compatibility for subject '" + subject + "'", e);
+        }
     }
 
     public void assertTopicContentsEventually(

@@ -23,7 +23,7 @@
     <groupId>com.hazelcast</groupId>
     <artifactId>hazelcast-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.7.2</version>
+    <version>5.7.3</version>
 
     <name>Hazelcast Parent POM</name>
     <description>Provides a base configuration for Hazelcast Platform builds</description>
@@ -64,7 +64,7 @@
     </licenses>
 
     <properties>
-        <jdk.version>17</jdk.version>
+        <jdk.version>25</jdk.version>
         <hazelcast.module.name>com.hazelcast.core</hazelcast.module.name>
         <relocation.root>com.hazelcast.shaded</relocation.root>
         <relocation.dir>com/hazelcast/shaded</relocation.dir>
@@ -84,10 +84,10 @@
 
         <os.maven.plugin.version>1.7.1</os.maven.plugin.version>
         <!-- Externalised so that checkstyle maintainers can test newer versions against Hazelcast -->
-        <checkstyle.version>12.3.1</checkstyle.version>
+        <checkstyle.version>14.0.0</checkstyle.version>
 
         <!-- Match parquet and avro version - parquet-avro depends on avro - https://mvnrepository.com/artifact/org.apache.parquet/parquet-avro -->
-        <avro.version>1.11.5</avro.version>
+        <avro.version>1.12.2</avro.version>
         <!-- Aircompressor 3.x targets JDK 25; keep the patched Java 8/17-compatible 2.x line. -->
         <aircompressor.version>2.0.3</aircompressor.version>
         <aws.sdk2.version>2.42.39</aws.sdk2.version>
@@ -97,19 +97,21 @@
         Explicitly upgrade to a version not vulnerable to CVE - https://github.com/advisories/GHSA-gcg6-xv4f-f749
         Not required with Calcite >=1.37, 
          -->
-        <janino.version>3.1.10</janino.version>
-        <debezium.version>1.9.8.Final</debezium.version>
-        <new.debezium.version>3.1.3.Final</new.debezium.version>
+        <janino.version>3.1.12</janino.version>
+        <debezium.version>3.6.1.Final</debezium.version>
         <grpc.version>1.83.1</grpc.version>
-        <hadoop.version>3.4.3</hadoop.version>
+        <python.grpc.version>1.83.0</python.grpc.version>
+        <!-- Hadoop 3.5 is the current stable line and removes the EOL Jetty 9 Azure runtime path. -->
+        <hadoop.version>3.5.0</hadoop.version>
         <!-- PastureStack security maintenance: retain the 5.7.0 API while updating the shaded Jackson runtimes. -->
-        <jackson.version>3.1.5</jackson.version>
-        <jackson2.version>2.21.5</jackson2.version>
-        <jackson.annotation.version>2.21</jackson.annotation.version>
-        <jline.version>3.30.9</jline.version>
+        <!-- Keep the project property distinct from both Jackson BOMs' internal jackson.version property. -->
+        <jackson3.version>3.2.2</jackson3.version>
+        <jackson2.version>2.22.2</jackson2.version>
+        <jackson.annotation.version>2.22</jackson.annotation.version>
+        <jline.version>4.3.1</jline.version>
         <json-surfer.version>0.13</json-surfer.version>
         <jsr107.api.version>1.1.1</jsr107.api.version> <!-- JCache -->
-        <netty.version>4.1.137.Final</netty.version>
+        <netty.version>4.2.17.Final</netty.version>
         <!--
         Confluent depends on Kafka, and consideration should be given when upgrading
         https://docs.confluent.io/platform/current/installation/versions-interoperability.html#cp-and-apache-ak-compatibility
@@ -120,7 +122,7 @@
         <confluent.version>7.9.5</confluent.version>
         <kotlin.version>2.3.20</kotlin.version>
         <!-- Match parquet and avro version - parquet-avro depends on avro - https://mvnrepository.com/artifact/org.apache.parquet/parquet-avro -->
-        <parquet.version>1.17.0</parquet.version>
+        <parquet.version>1.18.0</parquet.version>
 
         <spring.boot3.version>3.5.15</spring.boot3.version>
         <org.springframework6.version>6.2.19</org.springframework6.version>
@@ -137,9 +139,9 @@
         Protobuf libraries for each language have own major version, but share minor and patch
         See https://developers.google.com/protocol-buffers/docs/news/2022-05-06
         -->
-        <protobuf.version>25.8</protobuf.version>
-        <java.protobuf.version>3.${protobuf.version}</java.protobuf.version>
-        <python.protobuf.version>4.${protobuf.version}</python.protobuf.version>
+        <protobuf.version>36.0</protobuf.version>
+        <java.protobuf.version>4.${protobuf.version}</java.protobuf.version>
+        <python.protobuf.version>7.${protobuf.version}</python.protobuf.version>
 
         <scala.version>2.13</scala.version>
         <mongodb.version>5.6.4</mongodb.version>
@@ -221,7 +223,7 @@
             <dependency>
                 <groupId>tools.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
-                <version>${jackson.version}</version>
+                <version>${jackson3.version}</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -230,13 +232,6 @@
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson2.version}</version>
-                <scope>import</scope>
-                <type>pom</type>
-            </dependency>
-            <dependency>
-                <groupId>org.eclipse.jetty</groupId>
-                <artifactId>jetty-bom</artifactId>
-                <version>9.4.58.v20250814</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -520,7 +515,83 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.core5</groupId>
                 <artifactId>httpcore5</artifactId>
-                <version>5.3.5</version>
+                <version>5.4.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>5.4.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>5.6.3</version>
+            </dependency>
+            <!-- Keep security-sensitive transitive test/build dependencies on patched compatible lines. -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>1.85</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>1.85</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcutil-jdk18on</artifactId>
+                <version>1.85</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper</artifactId>
+                <version>3.8.6</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.wire</groupId>
+                <artifactId>wire-runtime-jvm</artifactId>
+                <version>6.3.0</version>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-core</artifactId>
+                <version>1.16.7</version>
+            </dependency>
+            <dependency>
+                <groupId>com.rabbitmq</groupId>
+                <artifactId>amqp-client</artifactId>
+                <version>5.33.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>3.6.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-configuration2</artifactId>
+                <version>2.15.0</version>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api</artifactId>
+                <version>1.62.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>1.5.34</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>1.5.34</version>
+            </dependency>
+            <dependency>
+                <groupId>io.vertx</groupId>
+                <artifactId>vertx-core</artifactId>
+                <version>4.5.27</version>
             </dependency>
             <dependency>
                 <groupId>org.jooq</groupId>
@@ -560,7 +631,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-bom</artifactId>
-                <version>2.25.4</version>
+                <version>2.25.5</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -568,7 +639,6 @@
                 <groupId>org.jline</groupId>
                 <artifactId>jline</artifactId>
                 <version>${jline.version}</version>
-                <classifier>jdk8</classifier>
             </dependency>
             <dependency>
                 <groupId>org.checkerframework</groupId>
@@ -1618,28 +1688,6 @@
                 <!-- should only be Spring 6 -->
                 <spring.boot.version>${spring.boot3.version}</spring.boot.version>
                 <org.springframework.version>${org.springframework6.version}</org.springframework.version>
-            </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                    <version>1</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
-            <id>spring-5</id>
-            <activation>
-                <property>
-                    <name>tested.spring.override</name>
-                    <value>5</value>
-                </property>
-            </activation>
-            <properties>
-                <!-- should only be Spring 5 -->
-                <spring.boot.version>2.7.18</spring.boot.version>
-                <org.springframework.version>5.3.39</org.springframework.version>
             </properties>
             <dependencies>
                 <dependency>

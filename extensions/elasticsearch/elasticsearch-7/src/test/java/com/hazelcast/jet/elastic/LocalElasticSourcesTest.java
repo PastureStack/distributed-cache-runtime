@@ -16,6 +16,9 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.client.test.TestHazelcastFactory;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.pipeline.BatchSource;
@@ -24,9 +27,6 @@ import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.test.IgnoreInJenkinsOnWindows;
 import com.hazelcast.jet.test.SerialTest;
 import com.hazelcast.test.annotation.NightlyTest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -64,8 +64,8 @@ public class LocalElasticSourcesTest extends CommonElasticSourcesTest {
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticClientSupplier())
-                .searchRequestFn(() -> new SearchRequest("my-index"))
-                .mapToItemFn(hit -> (String) hit.getSourceAsMap().get("name"))
+                .searchRequestFn(() -> SearchRequest.of(request -> request.index("my-index")))
+                .mapToItemFn(hit -> (String) hit.source().to(java.util.Map.class).get("name"))
                 .enableCoLocatedReading()
                 .build();
 
@@ -86,17 +86,17 @@ public class LocalElasticSourcesTest extends CommonElasticSourcesTest {
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(() -> {
-                    RestClientBuilder builder = spy(ElasticSupport.elasticClientSupplier().get());
+                    Rest5ClientBuilder builder = spy(ElasticSupport.elasticClientSupplier().get());
                     when(builder.build()).thenAnswer(invocation -> {
                         Object result = invocation.callRealMethod();
-                        RestClient elasticClient = (RestClient) result;
+                        Rest5Client elasticClient = (Rest5Client) result;
                         ClientHolder.elasticClients.add(elasticClient);
                         return elasticClient;
                     });
                     return builder;
                 })
-                .searchRequestFn(() -> new SearchRequest("my-index"))
-                .mapToItemFn(hit -> (String) hit.getSourceAsMap().get("name"))
+                .searchRequestFn(() -> SearchRequest.of(request -> request.index("my-index")))
+                .mapToItemFn(hit -> (String) hit.source().to(java.util.Map.class).get("name"))
                 .build();
 
         p.readFrom(source)

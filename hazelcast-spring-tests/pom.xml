@@ -25,7 +25,7 @@
     <parent>
         <groupId>com.hazelcast</groupId>
         <artifactId>hazelcast-root</artifactId>
-        <version>5.7.2</version>
+        <version>5.7.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -153,23 +153,6 @@
         even though `mvn help:active-profiles` shows that the profile is active
     -->
     <profiles>
-        <profile>
-            <id>spring-5</id>
-            <!-- see hazelcast-parent -->
-            <activation>
-                <property>
-                    <name>tested.spring.override</name>
-                    <value>5</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
         <profile>
             <id>spring-7</id>
             <activation>

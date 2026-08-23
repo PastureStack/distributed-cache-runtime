@@ -30,7 +30,7 @@ public class DebeziumConfig {
 
         properties.setProperty("name", name);
         properties.setProperty(CdcSourceP.CONNECTOR_CLASS_PROPERTY, connectorClass);
-        properties.setProperty("database.history", CdcSourceP.DatabaseHistoryImpl.class.getName());
+        properties.setProperty("schema.history.internal", CdcSourceP.DatabaseHistoryImpl.class.getName());
         properties.setProperty("tombstones.on.delete", "false");
     }
 

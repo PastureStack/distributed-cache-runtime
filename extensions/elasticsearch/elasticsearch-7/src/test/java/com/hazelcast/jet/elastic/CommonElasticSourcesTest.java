@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>
  * Subclasses may add tests specific for particular type of environment.
  * <p>
- * RestHighLevelClient is used to create data in Elastic to isolate possible Source and Sink issues.
+ * The Java API Client is used to create data in Elastic to isolate possible source and sink issues.
  */
 public abstract class CommonElasticSourcesTest extends BaseElasticTest {
 

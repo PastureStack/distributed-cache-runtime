@@ -21,8 +21,8 @@ import com.hazelcast.sql.SqlService;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
 import org.apache.parquet.io.OutputFile;
 import org.junit.AfterClass;
@@ -53,7 +53,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @RunWith(HazelcastSerialClassRunner.class)
 public class SqlHadoopTest extends SqlTestSupport {
 
-    private static MiniDFSCluster cluster;
+    private static FileSystem fileSystem;
+    private static Path testRoot;
     private static SqlService sqlService;
 
     @BeforeClass
@@ -72,15 +73,15 @@ public class SqlHadoopTest extends SqlTestSupport {
         directory.deleteOnExit();
 
         Configuration configuration = new Configuration();
-        configuration.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, directory.getAbsolutePath());
-        cluster = new MiniDFSCluster.Builder(configuration).build();
-        cluster.waitClusterUp();
+        testRoot = new Path("hdfs://local" + directory.toURI().getPath());
+        fileSystem = FileSystem.newInstance(testRoot.toUri(), configuration);
     }
 
     @AfterClass
-    public static void afterClass() {
-        if (cluster != null) {
-            cluster.shutdown();
+    public static void afterClass() throws IOException {
+        if (fileSystem != null) {
+            fileSystem.delete(testRoot, true);
+            fileSystem.close();
         }
     }
 
@@ -437,23 +438,33 @@ public class SqlHadoopTest extends SqlTestSupport {
     }
 
     private static String path(String suffix) throws IOException {
-        return cluster.getFileSystem().getUri() + "/" + suffix;
+        return suffix.isEmpty() ? testRoot.toString() : new Path(testRoot, suffix).toString();
     }
 
     private static void store(String path, String content) throws IOException {
-        try (FSDataOutputStream output = cluster.getFileSystem().create(new Path(path))) {
+        Path target = resolve(path);
+        fileSystem.mkdirs(target.getParent());
+        try (FSDataOutputStream output = fileSystem.create(target)) {
             output.writeBytes(content);
         }
     }
 
     private static void store(String path, byte[] content) throws IOException {
-        try (FSDataOutputStream output = cluster.getFileSystem().create(new Path(path))) {
+        Path target = resolve(path);
+        fileSystem.mkdirs(target.getParent());
+        try (FSDataOutputStream output = fileSystem.create(target)) {
             output.write(content);
         }
     }
 
     private static void storeParquet(String path) throws IOException {
-        OutputFile file = HadoopOutputFile.fromPath(new Path(path), cluster.getFileSystem().getConf());
+        Path target = resolve(path);
+        fileSystem.mkdirs(target.getParent());
+        OutputFile file = HadoopOutputFile.fromPath(target, fileSystem.getConf());
         FileUtil.writeParquetPayloadTo(file);
+    }
+
+    private static Path resolve(String path) {
+        return new Path(testRoot, path.startsWith("/") ? path.substring(1) : path);
     }
 }

@@ -124,7 +124,6 @@ final class BeanExporter
     @Override
     public void postProcessBeanFactory(@Nonnull ConfigurableListableBeanFactory configurableListableBeanFactory)
             throws BeansException {
-        // Required for Spring 5 compatibility.
-        // Do not remove this override while Spring 5 compatibility is still supported.
+        // Intentionally empty: registration is completed in postProcessBeanDefinitionRegistry.
     }
 }

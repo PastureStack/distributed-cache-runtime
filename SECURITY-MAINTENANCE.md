@@ -4,16 +4,25 @@
 
 The PastureStack maintenance delta intentionally preserves the Hazelcast 5.7.0 API while updating reviewed runtime and build-time dependencies with published security fixes:
 
-The resulting reviewed artifact version is `5.7.2`; it is a PastureStack maintenance release based on upstream `5.7.0`, not an upstream Hazelcast release. This version must be used consistently by the build output, artifact carrier, SBOM, and release evidence.
+The resulting reviewed artifact version is `5.7.3`; it is a PastureStack maintenance release based on upstream `5.7.0`, not an upstream Hazelcast release. This version must be used consistently by the build output, artifact carrier, SBOM, and release evidence.
 
 | Component | Upstream 5.7.0 | PastureStack maintained version | Scope |
 | --- | --- | --- | --- |
-| Jackson 2 core and databind | 2.21.2 | 2.21.5 LTS | Shaded runtime |
-| Jackson 3 core, databind, and JR | 3.1.2 | 3.1.5 LTS | Shaded runtime |
-| Netty | 4.1.132.Final | 4.1.137.Final | Extension and Hadoop integration dependencies |
-| gRPC Java | 1.73.0 | 1.83.1 | gRPC and cloud extension dependencies |
+| Java release / cloud test VM | 17 / Java 8 or 17 | 25 LTS / Ubuntu 24.04 LTS | Compiler target, CI, and cloud integration runtime |
+| Container build JDK | Unpinned release line | Temurin 25.0.4+7 on Ubuntu 24.04, digest pinned | Reproducible OCI build stage aligned with CI; build-only `unzip` preserves Maven ZIP checksum verification; a bounded 1.2 GiB Maven heap prevents javac OOM on the 2 GiB builder |
+| Jackson 2 core and databind | 2.21.2 | 2.22.2 | Shaded runtime |
+| Jackson 3 core, databind, and JR | 3.1.2 | 3.2.2 | Shaded runtime |
+| Netty | 4.1.132.Final | 4.2.17.Final | Extension and Hadoop integration dependencies |
+| Lettuce | 6.8.2.RELEASE | 7.7.0.RELEASE | Kafka Connect test dependency on the Netty 4.2 line |
+| JLine | 3.30.9 with Jansi | 4.3.1 with FFM | Command-line runtime |
+| Protobuf Java / Python | 3.25.8 / 4.25.8 | 4.36.0 / 7.36.0 | Protobuf, gRPC, and Python extensions |
+| Apache Avro | 1.11.5 | 1.12.2 | Serialization and connector runtime |
+| Apache Parquet | 1.17.0 | 1.18.0 | Parquet connector runtime |
+| Janino | 3.1.10 | 3.1.12 | SQL expression runtime |
+| Checkstyle | 12.3.1 | 14.0.0 | Build-time source policy |
+| gRPC Java / Python | 1.73.0 | 1.83.1 / 1.83.0 | gRPC and cloud extension dependencies |
 | Aircompressor | 2.0.2 | 2.0.3 | Hadoop compression dependency |
-| Hazelcast test-job dependency | 5.0.5 | 5.7.2 | Command-line integration test fixtures |
+| Hazelcast test-job dependency | 5.0.5 | 5.7.3 | Command-line integration test fixtures |
 | Maven Compiler Plugin | implicit | 3.15.0 | Reproducible test-fixture builds |
 | Maven JAR Plugin | 3.1.2 | 3.5.1 | Reproducible test-fixture packaging |
 | Maven Install Plugin | implicit | 3.1.4 | Latest stable Maven 3-compatible install lifecycle |
@@ -25,12 +34,45 @@ The resulting reviewed artifact version is `5.7.2`; it is a PastureStack mainten
 | PostgreSQL JDBC | 42.7.11 | 42.7.13 | Database integration tests |
 | Hibernate ORM | 5.6.15.Final | 7.4.5.Final | Distribution and Spring integration tests |
 | LZ4 Java maintained fork | 1.10.1 | 1.11.2 | Elasticsearch extension runtime |
+| Apache HTTP Core 5 | 5.3.5 / 5.3.4 | 5.4.3 | SQL, cloud, and Elasticsearch extension runtime |
+| Apache HTTP Client 5 | 5.5 | 5.6.3 | SQL and extension runtime |
+| Elasticsearch Java client | HLRC 7.17.29 | Java API Client 9.5.1 | Elasticsearch connector runtime |
+| Apache Commons Configuration | 2.10.1 / 2.13.0 | 2.15.0 | SQL and extension runtime |
+| OpenTelemetry API | 1.51.0 | 1.62.0 | Google Cloud Storage extension runtime |
+| Log4j 2 | 2.25.4 | 2.25.5 | Runtime and test logging |
+| Debezium | 1.9.8.Final | 3.6.1.Final | CDC runtime |
+| Bouncy Castle | 1.82 | 1.85 | Test and integration dependencies |
+| ZooKeeper | 3.8.4 | 3.8.6 | SQL integration tests |
+| Square Wire runtime | 5.1.0 | 6.3.0 | Kafka/Schema Registry tests |
+| Micrometer Core | 1.16.3 | 1.16.7 | Messaging integration tests |
+| RabbitMQ Java client | 5.29.0 | 5.33.1 | Messaging integration tests |
+| Plexus Utils | 3.6.0 | 3.6.1 | Maven build tooling |
+| Logback | 1.3.15 | 1.5.34 | Test logging |
+| Vert.x Core | 4.5.24 | 4.5.27 | Cloud integration tests |
+| Apache Hadoop | 3.4.3 | 3.5.0 | Hadoop, Azure, and S3 connector runtime |
 | Spring Boot 3 | 3.5.14 | 3.5.15 | Spring 6 integration tests |
 | Spring Framework 6 | 6.2.18 | 6.2.19 | Spring 6 integration tests |
 | Spring Boot 4 | 4.0.6 | 4.1.0 | Spring 7 integration tests |
 | Spring Framework 7 | 7.0.7 | 7.0.8 | Spring 7 integration tests |
+| Jetty test servers | Jetty 9.4.58 | removed | Schema Registry and Hadoop test infrastructure |
 
-The Jackson updates address the High-severity findings reported against the original shaded runtime by the Trivy Java vulnerability database on 2026-07-22, including `GHSA-r7wm-3cxj-wff9`, `CVE-2026-54512`, and `CVE-2026-54513`. The 2026-08-07 full-source review also covers Netty, gRPC Java, Aircompressor, MINA, Tomcat, PostgreSQL JDBC, Hibernate ORM, LZ4 Java, and Spring advisories tracked by GitHub and the respective upstream security notices. Netty remains on its compatible 4.1 maintenance line rather than crossing to 4.2. Aircompressor 2.0.3 contains the upstream fix for `CVE-2025-67721`; the current 3.x line targets JDK 25 and cannot replace it in this release-17 project. The standalone command-line test fixtures now pin stable Maven plugin releases and use the intended compiler release setting so their build output is reproducible. Hibernate ORM 5.6 has no patched release and is end-of-life, so the distribution test was migrated to the current stable 7.4 line instead of suppressing the alert or deleting coverage. LZ4 Java 1.11.2 was accepted only after matching its Maven Central publication to the upstream security release, signed tag history, and verified commits. Development and test scope reduces production reachability, but it does not make vulnerable code safe to execute in CI or release builds.
+The Jackson updates address the High-severity findings reported against the original shaded runtime by the Trivy Java vulnerability database on 2026-07-22, including `GHSA-r7wm-3cxj-wff9`, `CVE-2026-54512`, and `CVE-2026-54513`. The 2026-08-07 full-source review also covers Netty, gRPC Java, Aircompressor, MINA, Tomcat, PostgreSQL JDBC, Hibernate ORM, LZ4 Java, and Spring advisories tracked by GitHub and the respective upstream security notices. The 2026-08-23 maintenance pass additionally updates the shared dependency-management boundary for Apache HTTP Core/Client, Commons Configuration, OpenTelemetry, Log4j, Bouncy Castle, ZooKeeper, Wire, Micrometer, RabbitMQ, Plexus Utils, Logback, and Vert.x. The obsolete Log4j 1 bridge was removed from the Elasticsearch 7 tests, the legacy MySQL connector coordinate was replaced with `com.mysql:mysql-connector-j`, and the unused Hadoop `jsonschema2pojo-core` transitive was excluded at its direct introducing dependency. The sole Commons Lang 2 test call was migrated to the already managed Commons Lang 3 API before excluding Commons Lang 2 from the same path. The final compatibility pass moves the product and CI target to Java 25 LTS, upgrades Netty and Lettuce together onto the 4.2-native line, replaces JLine's Jansi provider with the Java FFM provider, and migrates Protobuf serializers to the stable `Message` API so generated classes from both the previous V3 hierarchy and Protobuf Java 4 remain supported. Java gRPC remains at 1.83.1, while the Python runtime uses 1.83.0 because gRPC patch releases are language-specific and 1.83.1 is not published on PyPI. Aircompressor remains at the current reviewed 2.0.3 release. The standalone command-line test fixtures now pin stable Maven plugin releases and use the intended compiler release setting so their build output is reproducible. Hibernate ORM 5.6 has no patched release and is end-of-life, so the distribution test was migrated to the current stable 7.4 line instead of suppressing the alert or deleting coverage. LZ4 Java 1.11.2 was accepted only after matching its Maven Central publication to the upstream security release, signed tag history, and verified commits. Development and test scope reduces production reachability, but it does not make vulnerable code safe to execute in CI or release builds.
+
+Debezium was migrated from the end-of-life 1.9 line to 3.6.1.Final. The CDC implementation now uses the current schema-history SPI and configuration keys (`schema.history.internal`, `topic.prefix`, and the `*.include.list` / `*.exclude.list` family). PostgreSQL snapshot mode `NEVER` maps to the current `NO_DATA` mode, while custom snapshotters use the current Debezium snapshotter SPI and custom-name setting. This is a runtime migration, not an alert suppression.
+
+The Elasticsearch connector was migrated from the end-of-life 7.17 High Level REST Client to the Elasticsearch Java API Client 9.5.1 and its REST 5 transport. Source, sink, bulk, scroll, slice, co-location, authentication, and request-option paths use the current API. The historical `hazelcast-jet-elasticsearch-7` artifactId remains only to preserve the published module coordinate; it no longer describes the client generation. The resolved connector graph contains no High Level REST Client, Elasticsearch server, Lucene, or legacy LZ4 artifact.
+
+Jetty 9 was eliminated instead of forcing an unrelated Jetty 12 server migration into connectors or tests. Kafka and SQL Schema Registry tests now use Confluent's supported in-process `MockSchemaRegistry` client and retain schema-registration semantics without starting the Jetty-backed REST application. SQL Hadoop tests retain the external `hdfs://` connector path while Hadoop's ViewFS overload maps the isolated test root to a temporary local filesystem; this removes `MiniDFSCluster` and its Jetty server graph without replacing the Hadoop connector under test. Hadoop 3.5.0 also removes the `hadoop-azure -> jetty-util-ajax -> jetty-util` runtime path retained by Hadoop 3.4.3. The resolved Kafka, SQL, Hadoop distribution, Azure, and S3 connector graphs contain no `org.eclipse.jetty` artifact.
+
+## Validation Boundaries
+
+- Java 25 compiles the 5,863-source core module. The focused SQL, Hadoop, Avro, Protobuf, gRPC, Kafka Connect, Python, and command-line compatibility checks pass. JLine 4 selects the FFM terminal provider under WSL. The Python runtime suite passes 6/6 with Protobuf 7.36.0 and gRPC Python 1.83.0.
+- CycloneDX 1.6 aggregate SBOMs contain 416 runtime components and 742 all-scope components, no random serial number, and zero Jetty components. Offline Trivy 0.74.0 scans recognize 417 and 743 Java packages respectively and report zero Critical, High, Medium, Low, or Unknown vulnerabilities against the 2026-08-23 vulnerability databases.
+- The Elasticsearch non-Docker connector suite, serialization/wire tests, packaging, Checkstyle, Maven Enforcer, and dependency convergence pass. The real Elasticsearch 9.5.1 Testcontainers client test also passes against the migrated Java API Client.
+- Debezium 3.6.1 integration tests pass against real MySQL and PostgreSQL containers. The MySQL source now assigns one bounded server ID per serialized source configuration, and both CDC modules use the Debezium-matched ANTLR 4.13.2 runtime.
+- On Hadoop 3.5.0, the Hadoop core suite passes 57/57 tests and the SQL `hdfs://` suite passes all 14 currently discovered tests. The Kafka/Avro schema-evolution integration suite passes 13 discovered cases (one intentionally skipped) against Kafka while using the in-process Schema Registry mock. These executions verify that removing Jetty did not remove the connector behavior under test.
+- The AWS, Azure, and GCP Terraform modules pass `fmt -check`, `init -backend=false`, and `validate` with Terraform 1.15.9. No cloud resources were provisioned.
+- GitHub alert closure and release SBOM/Trivy evidence require a committed revision and refreshed dependency graph. They must not be inferred from the uncommitted working tree; conversely, stale remote alert counts do not describe the resolved local graph.
 
 ## Source Boundary Hardening
 
@@ -50,17 +92,17 @@ The standalone release gates `scripts/check-xml-parser-hardening` and `scripts/c
 
 The reviewed core JAR build invokes Maven and the pinned JDK; it does not compile the repository's C source companions or package the optional Python extension. The gate records hashes for the tracked C headers, C sources, and prebuilt native resources, then requires the native bytes embedded in the JAR to match the tracked resources exactly. It also rejects Python extension resources in the core JAR. Python 3.14.7 is pinned only for evidence validation in CI. A C compiler therefore is not a hidden input to this artifact build, and the verifier Python is not a deployed runtime component.
 
-The opt-in `spring-5` compatibility profile still resolves Spring Boot 2.7.18 and Spring Framework 5.3.39. Both lines are end-of-life. They are not active in the default build and are absent from the reviewed core runtime SBOM, but test scope does not make them maintained or safe to execute indefinitely. Replacing or removing that profile requires a separate compatibility matrix and is not claimed as complete by this maintenance change.
+The opt-in `spring-5` compatibility profile has been removed because Spring Boot 2.7 and Spring Framework 5.3 are end-of-life. The maintained compatibility matrix starts at Spring Boot 3 / Spring Framework 6 and also covers Spring Boot 4 / Spring Framework 7. XML schema names such as `hazelcast-spring-5.7.xsd` identify the Hazelcast schema version and are unrelated to the removed Spring Framework 5 dependency line.
 
 ## Required Release Gates
 
 A release is acceptable only when all of the following are true:
 
 1. The upstream `v5.7.0` boundary recorded in [ORIGIN.md](ORIGIN.md) is an ancestor of the candidate, and every later commit remains on the linear PastureStack maintenance line.
-2. Every reactor POM and command-line test fixture resolves the maintained project at 5.7.2. Maven Wrapper 3.9.14 is downloaded only from Maven Central and is verified against the committed SHA-256 before execution. The source version gate reports Netty 4.1.137.Final, gRPC Java 1.83.1, Aircompressor 2.0.3, Maven Compiler Plugin 3.15.0, Maven JAR Plugin 3.5.1, Maven Install Plugin 3.1.4, Maven Dependency Plugin 3.11.0, an in-process Kotlin Maven compiler, MINA 2.0.31, Tomcat 11.0.24, PostgreSQL JDBC 42.7.13, Hibernate ORM 7.4.5.Final, LZ4 Java 1.11.2, Spring Boot 3.5.15 and 4.1.0, and Spring Framework 6.2.19 and 7.0.8.
-3. Maven's resolved dependency graph contains those reviewed versions and no older duplicate of the same artifacts.
-4. The produced file is `hazelcast-5.7.2.jar`; its embedded core Maven metadata reports 5.7.2, and its embedded Jackson metadata reports Jackson 2.21.5 and Jackson 3.1.5.
-5. Relevant core, Spring, database, and distribution integration tests pass on a supported LTS JDK. The focused source-boundary suite must retain its expected suite and test counts so an accidentally undiscovered test cannot appear successful.
+2. Every reactor POM and command-line test fixture resolves the maintained project at 5.7.3. Maven Wrapper 3.9.14 is downloaded only from Maven Central and is verified against the committed SHA-256 before execution. The source version gate requires Java 25, Ubuntu 24.04 LTS cloud test images, Checkstyle 14.0.0, Avro 1.12.2, Jackson 2.22.2 and 3.2.2, Janino 3.1.12, Parquet 1.18.0, JLine 4.3.1 with FFM, Protobuf Java 4.36.0 and Python 7.36.0, Netty 4.2.17.Final, Lettuce 7.7.0.RELEASE, gRPC Java 1.83.1 and Python 1.83.0, Aircompressor 2.0.3, Hadoop 3.5.0, Maven Compiler Plugin 3.15.0, Maven JAR Plugin 3.5.1, Maven Install Plugin 3.1.4, Maven Dependency Plugin 3.11.0, an in-process Kotlin Maven compiler, MINA 2.0.31, Tomcat 11.0.24, PostgreSQL JDBC 42.7.13, Hibernate ORM 7.4.5.Final, LZ4 Java 1.11.2, Apache HTTP Core 5.4.3, Apache HTTP Client 5.6.3, Elasticsearch Java API Client 9.5.1, Commons Configuration 2.15.0, OpenTelemetry 1.62.0, Log4j 2.25.5, Debezium 3.6.1.Final, Bouncy Castle 1.85, ZooKeeper 3.8.6, Wire 6.3.0, Micrometer 1.16.7, RabbitMQ client 5.33.1, Plexus Utils 3.6.1, Logback 1.5.34, Vert.x 4.5.27, Spring Boot 3.5.15 and 4.1.0, and Spring Framework 6.2.19 and 7.0.8. It also verifies that Jansi, the removed Spring 5 profile, legacy Debezium configuration keys, Elasticsearch HLRC, embedded Schema Registry server, and Hadoop MiniDFSCluster are absent.
+3. Maven's resolved dependency graph contains those reviewed versions, no older duplicate of the same artifacts, no Elasticsearch HLRC/server/Lucene legacy graph in the Elasticsearch connector, and no `org.eclipse.jetty` graph in the Kafka, SQL, Hadoop distribution, Azure, or S3 modules.
+4. The produced file is `hazelcast-5.7.3.jar`; its embedded core Maven metadata reports 5.7.3, and its embedded Jackson metadata reports Jackson 2.22.2 and Jackson 3.2.2.
+5. Relevant core, Spring, database, and distribution integration tests pass on Java 25 LTS. The focused source-boundary suite must retain its expected suite and test counts so an accidentally undiscovered test cannot appear successful.
 6. Both standalone source-boundary gates complete successfully on the release JDK.
 7. `trivy fs --offline-scan --scanners vuln --severity CRITICAL,HIGH` reports zero Critical and zero High findings across the resolved source POMs.
 8. `trivy rootfs --scanners vuln --severity CRITICAL,HIGH` reports zero Critical and zero High findings for the produced JAR.

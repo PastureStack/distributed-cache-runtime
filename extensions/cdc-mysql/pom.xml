@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.hazelcast.jet</groupId>
         <artifactId>hazelcast-jet-extensions</artifactId>
-        <version>5.7.2</version>
+        <version>5.7.3</version>
     </parent>
 
     <properties>
@@ -65,7 +65,7 @@
                     <artifactSet>
                         <excludes>
                             <!-- Exclude dependencies common with cdc-debezium -->
-                            <exclude>io.debezium:debezium-core</exclude>
+                            <exclude>io.debezium:debezium-connector-common</exclude>
                         </excludes>
                     </artifactSet>
                 </configuration>
@@ -113,11 +113,10 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>compile</scope>
         </dependency>
-        <!-- This forced ANTLR version shaded -->
+        <!-- Keep Debezium's generated parsers aligned with the managed ANTLR runtime. -->
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-            <version>4.9.3</version>
         </dependency>
 
         <!-- TEST -->

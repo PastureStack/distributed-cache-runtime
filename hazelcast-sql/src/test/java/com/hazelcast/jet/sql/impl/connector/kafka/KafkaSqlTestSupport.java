@@ -23,7 +23,6 @@ import com.hazelcast.jet.sql.SqlTestSupport;
 import com.hazelcast.sql.SqlResult;
 import com.hazelcast.sql.SqlService;
 import com.hazelcast.test.HazelcastSerialClassRunner;
-import io.confluent.kafka.schemaregistry.rest.SchemaRegistryConfig;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
@@ -34,8 +33,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
-
-import java.util.Properties;
 
 import static com.hazelcast.jet.sql.impl.connector.SqlConnector.OPTION_KEY_FORMAT;
 import static com.hazelcast.jet.sql.impl.connector.SqlConnector.OPTION_VALUE_FORMAT;
@@ -71,15 +68,7 @@ public abstract class KafkaSqlTestSupport extends SqlTestSupport {
     }
 
     protected static void createSchemaRegistry() throws Exception {
-        Properties properties = new Properties();
-        properties.setProperty("listeners", "http://0.0.0.0:0");
-        properties.setProperty(SchemaRegistryConfig.KAFKASTORE_BOOTSTRAP_SERVERS_CONFIG,
-                kafkaTestSupport.getBrokerConnectionString());
-        // We increase the timeout (default is 500 ms) because when Kafka is under load,
-        // the schema registry may give "RestClientException: Register operation timed out".
-        properties.setProperty(SchemaRegistryConfig.KAFKASTORE_TIMEOUT_CONFIG, "5000");
-        SchemaRegistryConfig config = new SchemaRegistryConfig(properties);
-        kafkaTestSupport.createSchemaRegistry(config);
+        kafkaTestSupport.createSchemaRegistry();
     }
 
     @AfterClass

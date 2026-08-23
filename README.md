@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
-The maintained `5.7.2` runtime keeps the upstream 5.7.0 API and applies a reviewed set of source hardening, runtime-library updates, and build-time integration dependency updates required by PastureStack. See [ORIGIN.md](ORIGIN.md) for provenance and [SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for the exact delta and release gates. The original upstream README follows unchanged below.
+The maintained `5.7.3` runtime keeps the upstream 5.7.0 API and applies a reviewed set of source hardening, runtime-library updates, and build-time integration dependency updates required by PastureStack. See [ORIGIN.md](ORIGIN.md) for provenance and [SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for the exact delta and release gates. The original upstream README follows unchanged below.
 
 ---
 
@@ -93,7 +93,7 @@ request.
 
 ### Building From Source
 
-Building Hazelcast requires at minimum JDK 17. Pull the latest source from the
+Building Hazelcast requires at minimum JDK 25. Pull the latest source from the
 repository and use Maven install (or package) to build:
 
 ```bash

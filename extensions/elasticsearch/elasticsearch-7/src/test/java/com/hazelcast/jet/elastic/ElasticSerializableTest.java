@@ -28,7 +28,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(HazelcastParallelClassRunner.class)
 @Category(ParallelJVMTest.class)
-public class Elastic7SerializableTest extends ArchUnitTestSupport {
+public class ElasticSerializableTest extends ArchUnitTestSupport {
 
     @Test
     public void serializable_classes_should_have_valid_serialVersionUID() {

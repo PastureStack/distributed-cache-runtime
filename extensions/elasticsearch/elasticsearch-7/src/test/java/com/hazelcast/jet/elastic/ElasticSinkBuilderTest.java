@@ -16,21 +16,23 @@
 
 package com.hazelcast.jet.elastic;
 
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.jet.pipeline.PipelineTestSupport;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.TestSources;
 import com.hazelcast.test.annotation.ParallelJVMTest;
 import com.hazelcast.test.annotation.QuickTest;
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest.RefreshPolicy;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+import java.net.URI;
+
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -43,17 +45,20 @@ public class ElasticSinkBuilderTest extends PipelineTestSupport {
 
         Sink<String> elasticSink = new ElasticSinkBuilder<>()
                 .clientFn(() -> {
-                    RestClientBuilder builder = spy(RestClient.builder(HttpHost.create("localhost:9200")));
+                    Rest5ClientBuilder builder = spy(Rest5Client.builder(URI.create("http://localhost:9200")));
                     when(builder.build()).thenAnswer(invocation -> {
                         Object result = invocation.callRealMethod();
-                        RestClient client = (RestClient) result;
+                        Rest5Client client = (Rest5Client) result;
                         ClientHolder.elasticClients.add(client);
                         return client;
                     });
                     return builder;
                 })
-                .bulkRequestFn(() -> new BulkRequest().setRefreshPolicy(RefreshPolicy.IMMEDIATE))
-                .mapToRequestFn((String item) -> new IndexRequest("my-index").source(emptyMap()))
+                .bulkRequestFn(() -> BulkRequest.of(request -> request
+                        .refresh(Refresh.True)
+                        .operations(emptyList())))
+                .mapToRequestFn((String item) -> BulkOperation.of(operation -> operation
+                        .index(request -> request.index("my-index").document(emptyMap()))))
                 .retries(0)
                 .build();
 

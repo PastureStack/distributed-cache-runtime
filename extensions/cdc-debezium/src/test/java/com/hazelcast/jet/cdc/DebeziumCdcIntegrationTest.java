@@ -101,9 +101,9 @@ public class DebeziumCdcIntegrationTest extends AbstractCdcIntegrationTest {
                                  .setProperty("database.user", "debezium")
                                  .setProperty("database.password", "dbz")
                                  .setProperty("database.server.id", "184054")
-                                 .setProperty("database.server.name", "dbserver1")
-                                 .setProperty("database.whitelist", "inventory")
-                                 .setProperty("table.whitelist", "inventory.customers")
+                                 .setProperty("topic.prefix", "dbserver1")
+                                 .setProperty("database.include.list", "inventory")
+                                 .setProperty("table.include.list", "inventory.customers")
                                  .build();
     }
 
@@ -124,9 +124,9 @@ public class DebeziumCdcIntegrationTest extends AbstractCdcIntegrationTest {
                     .setProperty("database.user", "debezium")
                     .setProperty("database.password", "dbz")
                     .setProperty("database.server.id", "184054")
-                    .setProperty("database.server.name", "dbserver1")
-                    .setProperty("database.whitelist", "inventory")
-                    .setProperty("table.whitelist", "inventory.customers")
+                    .setProperty("topic.prefix", "dbserver1")
+                    .setProperty("database.include.list", "inventory")
+                    .setProperty("table.include.list", "inventory.customers")
                     .build();
 
             Pipeline pipeline = Pipeline.create();
@@ -184,13 +184,13 @@ public class DebeziumCdcIntegrationTest extends AbstractCdcIntegrationTest {
             // given
             StreamSource<ChangeRecord> source = DebeziumCdcSources
                     .debezium("postgres", "io.debezium.connector.postgresql.PostgresConnector")
-                    .setProperty("database.server.name", "dbserver1")
+                    .setProperty("topic.prefix", "dbserver1")
                     .setProperty("database.hostname", container.getHost())
                     .setProperty("database.port", Integer.toString(container.getMappedPort(POSTGRESQL_PORT)))
                     .setProperty("database.user", "postgres")
                     .setProperty("database.password", "postgres")
                     .setProperty("database.dbname", "postgres")
-                    .setProperty("table.whitelist", "inventory.customers")
+                    .setProperty("table.include.list", "inventory.customers")
                     .setProperty("plugin.name", "pgoutput")
                     .setProperty("heartbeat.interval.ms", "1000") // this will add Heartbeat messages to the stream
                     .build();
@@ -225,14 +225,14 @@ public class DebeziumCdcIntegrationTest extends AbstractCdcIntegrationTest {
             StreamSource<Entry<String, String>> source = DebeziumCdcSources
                     .debeziumJson("postgres",
                             "io.debezium.connector.postgresql.PostgresConnector")
-                    .setProperty("database.server.name", "dbserver1")
+                    .setProperty("topic.prefix", "dbserver1")
                     .setProperty("database.hostname", container.getHost())
                     .setProperty("database.port", Integer.toString(container.getMappedPort(POSTGRESQL_PORT)))
                     .setProperty("database.user", "postgres")
                     .setProperty("database.password", "postgres")
                     .setProperty("database.dbname", "postgres")
                     .setProperty("plugin.name", "pgoutput")
-                    .setProperty("table.whitelist", "inventory.customers")
+                    .setProperty("table.include.list", "inventory.customers")
                     .build();
 
             Pipeline pipeline = Pipeline.create();
@@ -346,13 +346,13 @@ public class DebeziumCdcIntegrationTest extends AbstractCdcIntegrationTest {
 
             StreamSource<ChangeRecord> source = DebeziumCdcSources
                     .debezium("postgres", PostgresConnector.class)
-                    .setProperty("database.server.name", "dbserver1")
+                    .setProperty("topic.prefix", "dbserver1")
                     .setProperty("database.hostname", container.getHost())
                     .setProperty("database.port", Integer.toString(container.getMappedPort(POSTGRESQL_PORT)))
                     .setProperty("database.user", "postgres")
                     .setProperty("database.password", "postgres")
                     .setProperty("database.dbname", "postgres")
-                    .setProperty("table.whitelist", "inventory.no_pk")
+                    .setProperty("table.include.list", "inventory.no_pk")
                     .build();
             pipeline.readFrom(source)
                     .withNativeTimestamps(1)

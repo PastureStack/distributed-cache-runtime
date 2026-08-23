@@ -37,7 +37,6 @@
                 <include>org.slf4j:*</include>
                 <include>info.picocli:picocli</include>
                 <include>org.jline:*</include>
-                <include>org.fusesource.jansi:jansi</include>
             </includes>
             <outputDirectory>lib</outputDirectory>
             <outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}.${artifact.extension}</outputFileNameMapping>

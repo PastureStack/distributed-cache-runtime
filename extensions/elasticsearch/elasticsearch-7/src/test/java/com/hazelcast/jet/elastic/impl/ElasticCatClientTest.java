@@ -16,11 +16,11 @@
 
 package com.hazelcast.jet.elastic.impl;
 
+import co.elastic.clients.transport.rest5_client.low_level.Response;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.hazelcast.jet.JetException;
 import com.hazelcast.test.annotation.ParallelJVMTest;
 import com.hazelcast.test.annotation.QuickTest;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 public class ElasticCatClientTest {
 
     @Mock
-    private RestClient restClient;
+    private Rest5Client restClient;
 
     @Test
     public void shards() throws IOException {

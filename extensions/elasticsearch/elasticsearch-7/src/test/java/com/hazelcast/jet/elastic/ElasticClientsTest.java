@@ -20,7 +20,6 @@ import com.hazelcast.client.test.TestHazelcastFactory;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
-import org.elasticsearch.search.SearchHit;
 import org.junit.After;
 import org.junit.Test;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
@@ -52,7 +51,7 @@ public class ElasticClientsTest extends BaseElasticTest {
         Pipeline p = Pipeline.create();
         p.readFrom(ElasticSources.elastic(
                 () -> ElasticClients.client(httpHostAddress),
-                SearchHit::getSourceAsString)
+                hit -> hit.source().toJson().toString())
         ).writeTo(Sinks.list(results));
 
         submitJob(p);

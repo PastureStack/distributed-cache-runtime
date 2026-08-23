@@ -19,8 +19,8 @@ package com.hazelcast.jet.sql;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -34,7 +34,8 @@ import static java.util.Arrays.asList;
 
 @RunWith(HazelcastSerialClassRunner.class)
 public class SqlStatefulDagTest extends SqlTestSupport {
-    private static MiniDFSCluster cluster;
+    private static FileSystem fileSystem;
+    private static Path testRoot;
 
     @BeforeClass
     public static void setup() throws IOException {
@@ -47,9 +48,8 @@ public class SqlStatefulDagTest extends SqlTestSupport {
         directory.deleteOnExit();
 
         Configuration configuration = new Configuration();
-        configuration.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, directory.getAbsolutePath());
-        cluster = new MiniDFSCluster.Builder(configuration).build();
-        cluster.waitClusterUp();
+        testRoot = new Path("hdfs://local" + directory.toURI().getPath());
+        fileSystem = FileSystem.newInstance(testRoot.toUri(), configuration);
     }
 
     @Test
@@ -62,7 +62,7 @@ public class SqlStatefulDagTest extends SqlTestSupport {
                 "TYPE File " +
                 "OPTIONS (" +
                 "  'format' = 'csv'," +
-                "  'path' = '" + cluster.getFileSystem().getUri() + "/csv'" +
+                "  'path' = '" + new Path(testRoot, "csv") + "'" +
                 ");");
 
         for (int i = 0; i < 2; i++) {
@@ -73,15 +73,22 @@ public class SqlStatefulDagTest extends SqlTestSupport {
     }
 
     @AfterClass
-    public static void cleanup() {
-        if (cluster != null) {
-            cluster.shutdown();
+    public static void cleanup() throws IOException {
+        if (fileSystem != null) {
+            fileSystem.delete(testRoot, true);
+            fileSystem.close();
         }
     }
 
     private static void store(String path, String content) throws IOException {
-        try (FSDataOutputStream output = cluster.getFileSystem().create(new Path(path))) {
+        Path target = resolve(path);
+        fileSystem.mkdirs(target.getParent());
+        try (FSDataOutputStream output = fileSystem.create(target)) {
             output.writeBytes(content);
         }
+    }
+
+    private static Path resolve(String path) {
+        return new Path(testRoot, path.startsWith("/") ? path.substring(1) : path);
     }
 }

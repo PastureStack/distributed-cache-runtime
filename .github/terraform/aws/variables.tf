@@ -27,9 +27,9 @@ variable "aws_tag_value" {
 }
 
 variable "hazelcast_mancenter_version" {
-  type    = string
+  type = string
 }
 
 variable "hazelcast_path" {
-  type    = string
+  type = string
 }

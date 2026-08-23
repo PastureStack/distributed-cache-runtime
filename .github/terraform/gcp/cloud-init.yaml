@@ -1,6 +1,7 @@
 #cloud-config
+package_update: true
 # Install additional packages on first boot
 packages:
-  - openjdk-17-jre-headless
+  - openjdk-25-jre-headless
   - wget
   - unzip

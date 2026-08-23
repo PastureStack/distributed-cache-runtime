@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.hazelcast.jet</groupId>
         <artifactId>hazelcast-jet-extensions</artifactId>
-        <version>5.7.2</version>
+        <version>5.7.3</version>
     </parent>
 
     <properties>
@@ -262,7 +262,7 @@
             <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
             <!-- When bumping this version check our netty version is compatible -->
-            <version>6.8.2.RELEASE</version>
+            <version>7.7.0.RELEASE</version>
             <scope>test</scope>
         </dependency>
         <!-- AWS SQS-->

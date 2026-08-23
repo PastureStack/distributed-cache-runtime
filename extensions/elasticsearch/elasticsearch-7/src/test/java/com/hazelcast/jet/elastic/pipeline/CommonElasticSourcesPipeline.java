@@ -15,6 +15,8 @@
  */
 package com.hazelcast.jet.elastic.pipeline;
 
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.collection.IList;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.elastic.ElasticSourceBuilder;
@@ -22,13 +24,6 @@ import com.hazelcast.jet.elastic.ElasticSources;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
 
 public final class CommonElasticSourcesPipeline {
 
@@ -37,14 +32,14 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexAsStringPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticSupplier)
-                .searchRequestFn(() -> new SearchRequest(index))
-                .mapToItemFn(SearchHit::getSourceAsString)
+                .searchRequestFn(() -> search(index))
+                .mapToItemFn(hit -> hit.source().toJson().toString())
                 .build();
 
         p.readFrom(source)
@@ -55,14 +50,14 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexExtractNamePipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticSupplier)
-                .searchRequestFn(() -> new SearchRequest(index))
-                .mapToItemFn(hit -> (String) hit.getSourceAsMap().get("name"))
+                .searchRequestFn(() -> search(index))
+                .mapToItemFn(hit -> (String) hit.source().to(java.util.Map.class).get("name"))
                 .build();
 
         p.readFrom(source)
@@ -72,13 +67,13 @@ public final class CommonElasticSourcesPipeline {
     }
 
     public static Pipeline readFromIndexUsingSourceFactoryMethod1ExtractNamePipeline(
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = ElasticSources.elastic(
                 elasticSupplier,
-                hit -> (String) hit.getSourceAsMap().get("name")
+                hit -> (String) hit.source().to(java.util.Map.class).get("name")
         );
 
         p.readFrom(source)
@@ -89,14 +84,14 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexUsingSourceFactoryMethod2ExtractNamePipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = ElasticSources.elastic(
                 elasticSupplier,
-                () -> new SearchRequest(index),
-                hit -> (String) hit.getSourceAsMap().get("name")
+                () -> search(index),
+                hit -> (String) hit.source().to(java.util.Map.class).get("name")
         );
 
         p.readFrom(source)
@@ -107,20 +102,17 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexUsingScrollAsStringPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticSupplier)
-                .searchRequestFn(() -> {
-                    SearchRequest sr = new SearchRequest(index);
-
-                    sr.source().size(10) // needs to scroll 5 times
-                            .query(matchAllQuery());
-                    return sr;
-                })
-                .mapToItemFn(SearchHit::getSourceAsString)
+                .searchRequestFn(() -> SearchRequest.of(request -> request
+                        .index(index)
+                        .size(10) // needs to scroll 5 times
+                        .query(query -> query.matchAll(matchAll -> matchAll))))
+                .mapToItemFn(hit -> hit.source().toJson().toString())
                 .build();
 
         p.readFrom(source)
@@ -131,15 +123,18 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexWithQueryExtractNamePipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticSupplier)
-                .searchRequestFn(() -> new SearchRequest(index)
-                        .source(new SearchSourceBuilder().query(QueryBuilders.matchQuery("name", "Frantisek"))))
-                .mapToItemFn(hit -> (String) hit.getSourceAsMap().get("name"))
+                .searchRequestFn(() -> SearchRequest.of(request -> request
+                        .index(index)
+                        .query(query -> query.match(match -> match
+                                .field("name")
+                                .query("Frantisek")))))
+                .mapToItemFn(hit -> (String) hit.source().to(java.util.Map.class).get("name"))
                 .build();
 
         p.readFrom(source)
@@ -150,14 +145,14 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexAsStringEnableSlicingPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticSupplier)
-                .searchRequestFn(() -> new SearchRequest(index))
-                .mapToItemFn(SearchHit::getSourceAsString)
+                .searchRequestFn(() -> search(index))
+                .mapToItemFn(hit -> hit.source().toJson().toString())
                 .enableSlicing()
                 .build();
 
@@ -169,14 +164,14 @@ public final class CommonElasticSourcesPipeline {
 
     public static Pipeline readFromIndexAsStringZeroRetriesPipeline(
             String index,
-            SupplierEx<RestClientBuilder> elasticSupplier,
+            SupplierEx<Rest5ClientBuilder> elasticSupplier,
             IList<String> resultsList) {
         Pipeline p = Pipeline.create();
 
         BatchSource<String> source = new ElasticSourceBuilder<>()
                 .clientFn(elasticSupplier)
-                .searchRequestFn(() -> new SearchRequest(index))
-                .mapToItemFn(SearchHit::getSourceAsString)
+                .searchRequestFn(() -> search(index))
+                .mapToItemFn(hit -> hit.source().toJson().toString())
                 .retries(0) // we expect the exception -> faster test
                 .build();
 
@@ -184,6 +179,10 @@ public final class CommonElasticSourcesPipeline {
                 .writeTo(Sinks.list(resultsList));
 
         return p;
+    }
+
+    private static SearchRequest search(String index) {
+        return SearchRequest.of(request -> request.index(index));
     }
 
 }

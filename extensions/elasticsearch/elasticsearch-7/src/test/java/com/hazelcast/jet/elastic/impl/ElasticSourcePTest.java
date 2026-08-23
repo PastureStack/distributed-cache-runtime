@@ -16,325 +16,181 @@
 
 package com.hazelcast.jet.elastic.impl;
 
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.transport.DefaultTransportOptions;
+import co.elastic.clients.transport.TransportOptions;
 import com.hazelcast.function.FunctionEx;
-import com.hazelcast.jet.core.test.TestOutbox;
 import com.hazelcast.jet.core.test.TestSupport;
+import com.hazelcast.jet.elastic.ElasticClients;
 import com.hazelcast.jet.elastic.impl.Shard.Prirep;
 import com.hazelcast.test.HazelcastParallelClassRunner;
 import com.hazelcast.test.annotation.ParallelJVMTest;
 import com.hazelcast.test.annotation.QuickTest;
-import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.Node;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RequestOptions.Builder;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.bytes.BytesArray;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.slice.SliceBuilder;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
-import java.io.Serializable;
-import java.util.Collection;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-import static org.apache.lucene.search.TotalHits.Relation.EQUAL_TO;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
-import static org.assertj.core.util.Lists.newArrayList;
-import static org.mockito.ArgumentCaptor.forClass;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 
 @RunWith(HazelcastParallelClassRunner.class)
 @Category({QuickTest.class, ParallelJVMTest.class})
 public class ElasticSourcePTest {
 
-    public static final String HIT_SOURCE = "{\"name\": \"Frantisek\"}";
-    public static final String HIT_SOURCE2 = "{\"name\": \"Vladimir\"}";
-    public static final String SCROLL_ID = "random-scroll-id";
-
     private static final String KEEP_ALIVE = "42m";
+    private static final String SCROLL_ID = "random-scroll-id";
 
-    private ElasticSourceP<String> processor;
-    private SerializableRestClient mockClient;
-    private SearchResponse response;
-    private TestOutbox outbox;
+    private final List<CapturedRequest> requests = new ArrayList<>();
+    private final AtomicInteger scrollRequests = new AtomicInteger();
+    private HttpServer server;
+    private boolean returnHits;
 
     @Before
-    public void setUp() throws Exception {
-        mockClient = SerializableRestClient.instanceHolder = mock(SerializableRestClient.class, RETURNS_DEEP_STUBS);
-        // Mocks returning mocks is not generally recommended, but the setup of empty SearchResponse is even uglier
-        // See org.elasticsearch.action.search.SearchResponse#empty
-        response = mock(SearchResponse.class);
-        when(response.getScrollId()).thenReturn(SCROLL_ID);
-        when(mockClient.search(any(), any())).thenReturn(response);
+    public void setUp() throws IOException {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", this::handleRequest);
+        server.start();
     }
 
-    private TestSupport runProcessor() throws Exception {
-        return runProcessor(request -> RequestOptions.DEFAULT, emptyList(), false, false);
+    @After
+    public void tearDown() {
+        server.stop(0);
     }
 
-    private TestSupport runProcessor(FunctionEx<ActionRequest, RequestOptions> optionsFn) throws Exception {
-        return runProcessor(optionsFn, emptyList(), false, false);
+    @Test
+    public void whenRunProcessor_thenSendScrollAndPerRequestOptions() throws Exception {
+        FunctionEx<co.elastic.clients.elasticsearch._types.RequestBase, TransportOptions> optionsFn = request ->
+                DefaultTransportOptions.EMPTY.toBuilder().addHeader("TestHeader", "value").build();
+
+        runProcessor(optionsFn, emptyList(), false, false).expectOutput(emptyList());
+
+        CapturedRequest search = requests.get(0);
+        assertThat(URLDecoder.decode(search.query, StandardCharsets.UTF_8)).contains("scroll=42m");
+        assertThat(search.testHeader).isEqualTo("value");
     }
 
-    private TestSupport runProcessorWithCoLocation(List<Shard> shards) throws Exception {
-        return runProcessor(request -> RequestOptions.DEFAULT, shards, false, true);
+    @Test
+    public void givenMultiplePages_whenRunProcessor_thenReturnAllHitsAndClearScroll() throws Exception {
+        returnHits = true;
+
+        runProcessor(request -> DefaultTransportOptions.EMPTY, emptyList(), false, false)
+                .expectOutput(List.of("Frantisek", "Vladimir"));
+
+        assertThat(requests)
+                .filteredOn(request -> request.path.equals("/_search/scroll") && request.method.equals("POST"))
+                .hasSize(2)
+                .allSatisfy(request -> assertThat(request.body)
+                        .contains(SCROLL_ID)
+                        .contains(KEEP_ALIVE));
+        assertThat(requests)
+                .anySatisfy(request -> {
+                    assertThat(request.method).isEqualTo("DELETE");
+                    assertThat(request.path).isEqualTo("/_search/scroll");
+                    assertThat(request.body).contains(SCROLL_ID);
+                });
     }
 
-    private TestSupport runProcessor(FunctionEx<ActionRequest, RequestOptions> optionsFn, List<Shard> shards,
-                                     boolean slicing, boolean coLocatedReading)
-            throws Exception {
+    @Test
+    public void whenSlicingEnabled_thenUseGlobalProcessorCoordinates() throws Exception {
+        TestSupport support = runProcessor(
+                request -> DefaultTransportOptions.EMPTY, emptyList(), true, false);
+        support.localProcessorIndex(1);
+        support.localParallelism(2);
+        support.globalProcessorIndex(4);
+        support.totalParallelism(6);
+        support.expectOutput(emptyList());
 
-        RestHighLevelClient client = mockClient;
+        assertThat(requests.get(0).body).contains("\"slice\":{\"id\":\"4\",\"max\":6}");
+    }
+
+    @Test
+    public void whenCoLocated_thenUseLocalNodeAndShardPreference() throws Exception {
+        // Elasticsearch's _cat/nodes http_address field has no URI scheme.
+        String address = "127.0.0.1:" + server.getAddress().getPort();
+        List<Shard> shards = List.of(
+                new Shard("my-index", 0, Prirep.p, 42, "STARTED", "127.0.0.1", address, "es1"),
+                new Shard("my-index", 1, Prirep.p, 42, "STARTED", "127.0.0.1", address, "es1")
+        );
+
+        runProcessor(request -> DefaultTransportOptions.EMPTY, shards, false, true)
+                .expectOutput(emptyList());
+
+        String query = URLDecoder.decode(requests.get(0).query, StandardCharsets.UTF_8);
+        assertThat(query).contains("preference=_shards:0,1|_only_local");
+    }
+
+    private TestSupport runProcessor(
+            FunctionEx<co.elastic.clients.elasticsearch._types.RequestBase, TransportOptions> optionsFn,
+            List<Shard> shards,
+            boolean slicing,
+            boolean coLocatedReading
+    ) throws Exception {
+        int port = server.getAddress().getPort();
         ElasticSourceConfiguration<String> configuration = new ElasticSourceConfiguration<>(
-                () -> client,
-                () -> new SearchRequest("*"),
+                () -> ElasticClients.client("127.0.0.1", port),
+                () -> SearchRequest.of(request -> request.index("*")),
                 optionsFn,
-                SearchHit::getSourceAsString,
+                hit -> String.valueOf(hit.source().to(Map.class).get("name")),
                 slicing,
                 coLocatedReading,
                 KEEP_ALIVE,
-                5);
+                0);
 
-        // This constructor calls the client so it has to be called after specific mock setup in each test method
-        // rather than in setUp()
-        processor = new ElasticSourceP<>(configuration, shards);
-
-        return TestSupport.verifyProcessor(() -> processor)
-                .disableSnapshots();
+        return TestSupport.verifyProcessor(() -> new ElasticSourceP<>(configuration, shards))
+                          .disableSnapshots();
     }
 
-    @Test
-    public void when_runProcessor_then_executeSearchRequestWithScroll() throws Exception {
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(0, EQUAL_TO), Float.NaN));
+    private void handleRequest(HttpExchange exchange) throws IOException {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        requests.add(new CapturedRequest(
+                exchange.getRequestMethod(),
+                exchange.getRequestURI().getPath(),
+                exchange.getRequestURI().getRawQuery() == null ? "" : exchange.getRequestURI().getRawQuery(),
+                body,
+                exchange.getRequestHeaders().getFirst("TestHeader")));
 
-        TestSupport support = runProcessor();
-
-        support.expectOutput(emptyList());
-
-        ArgumentCaptor<SearchRequest> captor = forClass(SearchRequest.class);
-        verify(mockClient).search(captor.capture(), any());
-
-        SearchRequest request = captor.getValue();
-        assertThat(request.scroll().keepAlive().getStringRep()).isEqualTo(KEEP_ALIVE);
-    }
-
-    @Test
-    public void when_runProcessorWithOptionsFn_then_shouldUseOptionsFnForSearchRequest() throws Exception {
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(0, EQUAL_TO), Float.NaN));
-
-        // get different instance than default
-        TestSupport testSupport = runProcessor(request -> {
-            Builder builder = RequestOptions.DEFAULT.toBuilder();
-            builder.addHeader("TestHeader", "value");
-            return builder.build();
-        });
-
-        testSupport.expectOutput(emptyList());
-
-        ArgumentCaptor<RequestOptions> captor = forClass(RequestOptions.class);
-        verify(mockClient).search(any(), captor.capture());
-
-        RequestOptions capturedOptions = captor.getValue();
-        assertThat(capturedOptions.getHeaders())
-                .extracting(h -> tuple(h.getName(), h.getValue()))
-                .containsExactly(tuple("TestHeader", "value"));
-    }
-
-    @Test
-    public void given_singleHit_when_runProcessor_then_produceSingleHit() throws Exception {
-        SearchHit hit = new SearchHit(0, "id-0", new Text("ignored"), emptyMap(), emptyMap());
-        hit.sourceRef(new BytesArray(HIT_SOURCE));
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{hit}, new TotalHits(1, EQUAL_TO), Float.NaN));
-
-        SearchResponse response2 = mock(SearchResponse.class);
-        when(response2.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(1, EQUAL_TO), Float.NaN));
-        when(mockClient.scroll(any(), any())).thenReturn(response2);
-
-        TestSupport testSupport = runProcessor();
-
-        testSupport.expectOutput(newArrayList(HIT_SOURCE));
-    }
-
-    @Test
-    public void givenMultipleResults_when_runProcessor_then_useScrollIdInFollowupScrollRequest() throws Exception {
-        SearchHit hit = new SearchHit(0, "id-0", new Text("ignored"), emptyMap(), emptyMap());
-        hit.sourceRef(new BytesArray(HIT_SOURCE));
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{hit}, new TotalHits(3, EQUAL_TO), Float.NaN));
-
-        SearchResponse response2 = mock(SearchResponse.class);
-        SearchHit hit2 = new SearchHit(1, "id-1", new Text("ignored"), emptyMap(), emptyMap());
-        hit2.sourceRef(new BytesArray(HIT_SOURCE2));
-        when(response2.getHits()).thenReturn(new SearchHits(new SearchHit[]{hit2}, new TotalHits(3, EQUAL_TO), Float.NaN));
-
-        SearchResponse response3 = mock(SearchResponse.class);
-        when(response3.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(3, EQUAL_TO), Float.NaN));
-        when(mockClient.scroll(any(), any())).thenReturn(response2, response3);
-
-        TestSupport testSupport = runProcessor();
-
-        testSupport.expectOutput(newArrayList(HIT_SOURCE, HIT_SOURCE2));
-
-        ArgumentCaptor<SearchScrollRequest> captor = forClass(SearchScrollRequest.class);
-
-        verify(mockClient, times(2)).scroll(captor.capture(), any());
-        SearchScrollRequest request = captor.getValue();
-        assertThat(request.scrollId()).isEqualTo(SCROLL_ID);
-        assertThat(request.scroll().keepAlive().getStringRep()).isEqualTo(KEEP_ALIVE);
-    }
-
-    @Test
-    public void when_runProcessorWithOptionsFn_then_shouldUseOptionsFnForScrollRequest() throws Exception {
-        SearchHit hit = new SearchHit(0, "id-0", new Text("ignored"), emptyMap(), emptyMap());
-        hit.sourceRef(new BytesArray(HIT_SOURCE));
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{hit}, new TotalHits(1, EQUAL_TO), Float.NaN));
-
-        SearchResponse response2 = mock(SearchResponse.class);
-        when(response2.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(1, EQUAL_TO), Float.NaN));
-        when(mockClient.scroll(any(), any())).thenReturn(response2);
-
-        // get different instance than default
-        TestSupport testSupport = runProcessor(request -> {
-            Builder builder = RequestOptions.DEFAULT.toBuilder();
-            builder.addHeader("TestHeader", "value");
-            return builder.build();
-        });
-
-        testSupport.expectOutput(newArrayList(HIT_SOURCE));
-
-        ArgumentCaptor<RequestOptions> captor = forClass(RequestOptions.class);
-        verify(mockClient).scroll(any(), captor.capture());
-
-        RequestOptions capturedOptions = captor.getValue();
-        assertThat(capturedOptions.getHeaders())
-                .extracting(h -> tuple(h.getName(), h.getValue()))
-                .containsExactly(tuple("TestHeader", "value"));
-    }
-
-    @Test
-    public void when_runProcessorWithCoLocation_then_useLocalNodeOnly() throws Exception {
-        RestClient lowClient = mock(RestClient.class);
-        when(mockClient.getLowLevelClient()).thenReturn(lowClient);
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(0, EQUAL_TO), Float.NaN));
-
-        TestSupport testSupport = runProcessorWithCoLocation(newArrayList(
-                new Shard("my-index", 0, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1")
-        ));
-        testSupport.expectOutput(emptyList());
-
-        ArgumentCaptor<Collection<Node>> nodesCaptor = ArgumentCaptor.forClass(Collection.class);
-
-        verify(lowClient).setNodes(nodesCaptor.capture());
-
-        Collection<Node> nodes = nodesCaptor.getValue();
-        assertThat(nodes).hasSize(1);
-
-        Node node = nodes.iterator().next();
-        assertThat(node.getHost().toHostString()).isEqualTo("10.0.0.1:9200");
-    }
-
-    @Test
-    public void when_runProcessorWithCoLocation_thenSearchShardsWithPreference() throws Exception {
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(0, EQUAL_TO), Float.NaN));
-
-        TestSupport processor = runProcessorWithCoLocation(newArrayList(
-                new Shard("my-index", 0, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1"),
-                new Shard("my-index", 1, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1"),
-                new Shard("my-index", 2, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1")
-        ));
-        processor.expectOutput(emptyList());
-
-        ArgumentCaptor<SearchRequest> captor = forClass(SearchRequest.class);
-        verify(mockClient).search(captor.capture(), any());
-
-        SearchRequest request = captor.getValue();
-        assertThat(request.preference()).isEqualTo("_shards:0,1,2|_only_local");
-    }
-
-    @Test
-    public void when_runProcessorWithParallelism_thenUseSlicingBasedOnGlobalValues() throws Exception {
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(0, EQUAL_TO), Float.NaN));
-
-        TestSupport testSupport = runProcessor((r) -> RequestOptions.DEFAULT, emptyList(), true, false);
-        testSupport.localProcessorIndex(1);
-        testSupport.localParallelism(2);
-        testSupport.globalProcessorIndex(4);
-        testSupport.totalParallelism(6);
-        testSupport.expectOutput(emptyList());
-
-        ArgumentCaptor<SearchRequest> captor = forClass(SearchRequest.class);
-        verify(mockClient).search(captor.capture(), any());
-
-        SearchRequest request = captor.getValue();
-        SliceBuilder slice = request.source().slice();
-
-        // Slicing across all, should use global index / total parallelism
-        assertThat(slice.getId()).isEqualTo(4);
-        assertThat(slice.getMax()).isEqualTo(6);
-    }
-
-    @Test
-    public void when_runProcessorWithCoLocationAndSlicing_thenUseSlicingBasedOnLocalValues() throws Exception {
-        when(response.getHits()).thenReturn(new SearchHits(new SearchHit[]{}, new TotalHits(0, EQUAL_TO), Float.NaN));
-
-        TestSupport testSupport = runProcessor((r) -> RequestOptions.DEFAULT,
-                newArrayList(
-                        new Shard("my-index", 0, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1"),
-                        new Shard("my-index", 1, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1"),
-                        new Shard("my-index", 2, Prirep.p, 42, "STARTED", "10.0.0.1", "10.0.0.1:9200", "es1")
-                ),
-                true, true);
-        testSupport.localProcessorIndex(1);
-        testSupport.localParallelism(2);
-        testSupport.globalProcessorIndex(4);
-        testSupport.totalParallelism(6);
-        testSupport.expectOutput(emptyList());
-
-        ArgumentCaptor<SearchRequest> captor = forClass(SearchRequest.class);
-        verify(mockClient).search(captor.capture(), any());
-
-        SearchRequest request = captor.getValue();
-        SliceBuilder slice = request.source().slice();
-
-        // Slicing across single node, should use local values
-        assertThat(slice.getId()).isEqualTo(1);
-        assertThat(slice.getMax()).isEqualTo(2);
-    }
-
-    /*
-     * Need to pass a Serializable Supplier into
-     * ElasticSourceBuilder.clientFn(...)
-     * which returns a mock, so the mock itself must be serializable.
-     *
-     * Can't use Mockito's withSettings().serializable() because some of the setup (SearchResponse) is not Serializable
-     */
-    static class SerializableRestClient extends RestHighLevelClient implements Serializable {
-
-        static SerializableRestClient instanceHolder;
-
-        SerializableRestClient(RestClientBuilder restClientBuilder) {
-            super(restClientBuilder);
+        String response;
+        if (exchange.getRequestURI().getPath().equals("/_search/scroll")
+                && exchange.getRequestMethod().equals("DELETE")) {
+            response = "{\"succeeded\":true,\"num_freed\":1}";
+        } else if (exchange.getRequestURI().getPath().equals("/_search/scroll")) {
+            response = scrollRequests.getAndIncrement() == 0 && returnHits
+                    ? searchResponse("Vladimir", 2)
+                    : searchResponse(null, returnHits ? 2 : 0);
+        } else {
+            response = returnHits ? searchResponse("Frantisek", 2) : searchResponse(null, 0);
         }
 
+        byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.getResponseHeaders().add("X-Elastic-Product", "Elasticsearch");
+        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
+    }
+
+    private static String searchResponse(String name, int total) {
+        String hit = name == null ? "" : "{\"_index\":\"my-index\",\"_id\":\"" + name
+                + "\",\"_score\":1.0,\"_source\":{\"name\":\"" + name + "\"}}";
+        return "{\"_scroll_id\":\"" + SCROLL_ID + "\",\"took\":1,\"timed_out\":false,"
+                + "\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},"
+                + "\"hits\":{\"total\":{\"value\":" + total + ",\"relation\":\"eq\"},"
+                + "\"max_score\":1.0,\"hits\":[" + hit + "]}}";
+    }
+
+    private record CapturedRequest(String method, String path, String query, String body, String testHeader) {
     }
 }

@@ -16,6 +16,9 @@
 
 package com.hazelcast.jet.elastic.impl;
 
+import co.elastic.clients.transport.rest5_client.low_level.Request;
+import co.elastic.clients.transport.rest5_client.low_level.Response;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
@@ -24,9 +27,6 @@ import com.hazelcast.jet.JetException;
 import com.hazelcast.jet.elastic.impl.Shard.Prirep;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
 
 import javax.annotation.Nonnull;
 import java.io.Closeable;
@@ -45,16 +45,16 @@ import static java.util.logging.Level.FINE;
 import static java.util.stream.Collectors.toMap;
 
 /**
- * Wrapper around {@link RestClient} access for /_cat/* endpoints
+ * Wrapper around {@link Rest5Client} access for /_cat/* endpoints
  */
 public class ElasticCatClient implements Closeable {
 
     private static final ILogger LOG = Logger.getLogger(ElasticCatClient.class);
 
-    private final RestClient client;
+    private final Rest5Client client;
     private final int retries;
 
-    public ElasticCatClient(RestClient client, int retries) {
+    public ElasticCatClient(Rest5Client client, int retries) {
         this.client = client;
         this.retries = retries;
     }

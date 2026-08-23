@@ -16,13 +16,14 @@
 
 package com.hazelcast.jet.elastic.impl;
 
+import co.elastic.clients.elasticsearch._types.RequestBase;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonData;
+import co.elastic.clients.transport.TransportOptions;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.search.SearchHit;
 
 import javax.annotation.Nonnull;
 import java.io.Serial;
@@ -40,20 +41,20 @@ public class ElasticSourceConfiguration<T> implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private final SupplierEx<RestHighLevelClient> clientFn;
+    private final SupplierEx<Rest5ClientBuilder> clientFn;
     private final SupplierEx<SearchRequest> searchRequestFn;
-    private final FunctionEx<? super ActionRequest, RequestOptions> optionsFn;
-    private final FunctionEx<? super SearchHit, T> mapToItemFn;
+    private final FunctionEx<? super RequestBase, TransportOptions> optionsFn;
+    private final FunctionEx<? super Hit<JsonData>, T> mapToItemFn;
     private final boolean slicing;
     private final boolean coLocatedReading;
     private final String scrollKeepAlive;
     private final int retries;
 
     public ElasticSourceConfiguration(
-            SupplierEx<RestHighLevelClient> clientFn,
+            SupplierEx<Rest5ClientBuilder> clientFn,
             SupplierEx<SearchRequest> searchRequestFn,
-            FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
-            FunctionEx<? super SearchHit, T> mapToItemFn,
+            FunctionEx<? super RequestBase, TransportOptions> optionsFn,
+            FunctionEx<? super Hit<JsonData>, T> mapToItemFn,
             boolean slicing, boolean coLocatedReading,
             String scrollKeepAlive, int retries
     ) {
@@ -68,7 +69,7 @@ public class ElasticSourceConfiguration<T> implements Serializable {
     }
 
     @Nonnull
-    public SupplierEx<RestHighLevelClient> clientFn() {
+    public SupplierEx<Rest5ClientBuilder> clientFn() {
         return clientFn;
     }
 
@@ -78,11 +79,11 @@ public class ElasticSourceConfiguration<T> implements Serializable {
     }
 
     @Nonnull
-    public FunctionEx<? super SearchHit, T> mapToItemFn() {
+    public FunctionEx<? super Hit<JsonData>, T> mapToItemFn() {
         return mapToItemFn;
     }
 
-    public FunctionEx<? super ActionRequest, RequestOptions> optionsFn() {
+    public FunctionEx<? super RequestBase, TransportOptions> optionsFn() {
         return optionsFn;
     }
 
