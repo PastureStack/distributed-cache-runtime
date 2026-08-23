@@ -345,6 +345,9 @@ jobs:
           docker run --rm \
             -v "$trivy_cache:/root/.cache/trivy" \
             "$TRIVY_IMAGE" image --cache-dir /root/.cache/trivy --download-db-only
+          docker run --rm \
+            -v "$trivy_cache:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" image --cache-dir /root/.cache/trivy --download-java-db-only
           source_tree=$(mktemp -d)
           trap 'rm -rf "$source_tree"' EXIT
           git archive --format=tar HEAD | tar -xf - -C "$source_tree"

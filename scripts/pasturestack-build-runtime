@@ -29,6 +29,8 @@ grep -Fq 'sku       = "server"' .github/terraform/azure/main.tf
 grep -Fq 'ubuntu-os-cloud/ubuntu-2404-lts-amd64' .github/terraform/gcp/main.tf
 grep -A4 -F -- '-v "$PWD/dist:/artifact:ro"' .github/workflows/security-release-gate.yml \
     | grep -Fq '"$TRIVY_IMAGE" rootfs --pkg-types library'
+grep -Fq '"$TRIVY_IMAGE" image --cache-dir /root/.cache/trivy --download-java-db-only' \
+    .github/workflows/security-release-gate.yml
 grep -Fq '<checkstyle.version>14.0.0</checkstyle.version>' hazelcast-parent/pom.xml
 ! grep -Fq '<module name="JavadocStyle">' checkstyle/checkstyle.xml
 grep -Fq '<avro.version>1.12.2</avro.version>' hazelcast-parent/pom.xml
