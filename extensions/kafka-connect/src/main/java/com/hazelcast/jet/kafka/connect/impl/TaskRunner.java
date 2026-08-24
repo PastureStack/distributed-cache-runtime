@@ -66,13 +66,16 @@ public class TaskRunner {
                 logger.info("Task '" + name + "' stopped");
             }
         } finally {
-            running = false;
-            task = null;
-            if (taskContext != null) {
-                taskContext.close();
-                taskContext = null;
+            try {
+                running = false;
+                task = null;
+                if (taskContext != null) {
+                    taskContext.close();
+                    taskContext = null;
+                }
+            } finally {
+                taskLifecycleLock.unlock();
             }
-            taskLifecycleLock.unlock();
         }
     }
 
