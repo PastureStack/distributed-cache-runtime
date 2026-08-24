@@ -58,8 +58,8 @@ public class TaskRunner {
     }
 
     public void stop() {
+        taskLifecycleLock.lock();
         try {
-            taskLifecycleLock.lock();
             if (running) {
                 logger.info("Stopping task '" + name + "'");
                 task.stop();
