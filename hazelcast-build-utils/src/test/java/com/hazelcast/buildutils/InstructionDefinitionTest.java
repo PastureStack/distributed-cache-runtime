@@ -16,7 +16,7 @@
 
 package com.hazelcast.buildutils;
 
-import aQute.lib.osgi.Instruction;
+import aQute.bnd.osgi.Instruction;
 import com.hazelcast.buildutils.HazelcastManifestTransformer.InstructionDefinition;
 import com.hazelcast.buildutils.HazelcastManifestTransformer.PackageDefinition;
 import com.hazelcast.test.HazelcastParallelClassRunner;
