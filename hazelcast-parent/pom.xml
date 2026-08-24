@@ -129,11 +129,8 @@
         <!-- Match parquet and avro version - parquet-avro depends on avro - https://mvnrepository.com/artifact/org.apache.parquet/parquet-avro -->
         <parquet.version>1.18.0</parquet.version>
 
-        <spring.boot3.version>3.5.16</spring.boot3.version>
-        <org.springframework6.version>6.2.19</org.springframework6.version>
-
-        <spring.boot4.version>4.1.1</spring.boot4.version>
-        <org.springframework7.version>7.0.9</org.springframework7.version>
+        <spring.boot.version>4.1.1</spring.boot.version>
+        <org.springframework.version>7.0.9</org.springframework.version>
 
         <!-- PastureStack security-maintained build and integration dependencies. -->
         <mina.version>2.2.9</mina.version>
@@ -1658,61 +1655,6 @@
             </properties>
         </profile>
 
-        <!--
-        A range of Spring versions are supported - using profiles allow configuration of different major versions for testing
-        The supported versions of Spring are featured in the public documentation
-        As such upgrades require corresponding documentation updates
-        https://github.com/hazelcast/hz-docs/blob/main/docs/modules/spring/pages/overview.adoc#supported-versions
-        -->
-        <profile>
-            <id>spring-7</id>
-            <activation>
-                <!--
-                Make this the default profile
-                workaround the fact that `activeByDefault` profiles only work if _no-other_ profile is specified
-                instead activate the profile unless some non-existent profile is set
-                https://stackoverflow.com/a/7481347
-                -->
-                <property>
-                    <name>!tested.spring.override</name>
-                </property>
-            </activation>
-            <properties>
-                <!-- should only be Spring 7 -->
-                <spring.boot.version>${spring.boot4.version}</spring.boot.version>
-                <org.springframework.version>${org.springframework7.version}</org.springframework.version>
-            </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>jakarta.inject</groupId>
-                    <artifactId>jakarta.inject-api</artifactId>
-                    <version>2.0.1</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
-            <id>spring-6</id>
-            <activation>
-                <property>
-                    <name>tested.spring.override</name>
-                    <value>6</value>
-                </property>
-            </activation>
-            <properties>
-                <!-- should only be Spring 6 -->
-                <spring.boot.version>${spring.boot3.version}</spring.boot.version>
-                <org.springframework.version>${org.springframework6.version}</org.springframework.version>
-            </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                    <version>1</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
         <!-- Profile used to compare the current version with the baseline defined in hazelcast.public.api.baseline.version
           This comparison is done by japicmp plugin which compares jars - already released one with the current snapshot -->
         <profile>
