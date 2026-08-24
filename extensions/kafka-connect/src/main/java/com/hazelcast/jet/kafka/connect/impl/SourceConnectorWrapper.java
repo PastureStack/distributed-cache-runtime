@@ -27,6 +27,7 @@ import com.hazelcast.jet.retry.impl.RetryTracker;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.topic.Message;
+import org.apache.kafka.common.metrics.PluginMetrics;
 import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.source.SourceConnector;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -60,6 +61,7 @@ public class SourceConnectorWrapper {
             .build();
     private final ILogger logger = Logger.getLogger(SourceConnectorWrapper.class);
     private SourceConnector sourceConnector;
+    private JetPluginMetrics connectorPluginMetrics;
     private int tasksMax;
     private TaskRunner taskRunner;
     private final ReentrantLock reconfigurationLock = new ReentrantLock();
@@ -126,6 +128,7 @@ public class SourceConnectorWrapper {
             sourceConnector = newConnectorInstance(connectorClazz);
 
             if (isMasterProcessor) {
+                connectorPluginMetrics = new JetPluginMetrics(Map.of("connector", name));
                 sourceConnector.initialize(new JetConnectorContext());
                 logger.fine("Starting connector '%s'. Below are the propertiesFromUser", name);
                 sourceConnector.start(currentConfig);
@@ -137,9 +140,13 @@ public class SourceConnectorWrapper {
         } catch (Exception e) {
             logger.warning("Error while starting connector", e);
             reconnectTracker.attemptFailed();
-            if (sourceConnector != null) {
-                sourceConnector.stop();
+            try {
+                if (sourceConnector != null) {
+                    sourceConnector.stop();
+                }
+            } finally {
                 sourceConnector = null;
+                closeConnectorPluginMetrics();
             }
             lastConnectionException = e;
             return;
@@ -332,9 +339,13 @@ public class SourceConnectorWrapper {
 
     public void close() {
         logger.info("Stopping connector '" + name + "'");
-        taskRunner.stop();
-        sourceConnector.stop();
-        destroyTopic();
+        try {
+            taskRunner.stop();
+            sourceConnector.stop();
+        } finally {
+            closeConnectorPluginMetrics();
+            destroyTopic();
+        }
         logger.info("Connector '" + name + "' stopped");
     }
 
@@ -394,6 +405,18 @@ public class SourceConnectorWrapper {
         @Override
         public void raiseError(Exception e) {
             throw rethrow(e);
+        }
+
+        @Override
+        public PluginMetrics pluginMetrics() {
+            return connectorPluginMetrics.pluginMetrics();
+        }
+    }
+
+    private void closeConnectorPluginMetrics() {
+        if (connectorPluginMetrics != null) {
+            connectorPluginMetrics.close();
+            connectorPluginMetrics = null;
         }
     }
 }

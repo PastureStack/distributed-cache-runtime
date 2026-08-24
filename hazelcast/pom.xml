@@ -26,7 +26,7 @@
     <parent>
         <groupId>com.hazelcast</groupId>
         <artifactId>hazelcast-root</artifactId>
-        <version>5.7.3</version>
+        <version>5.7.3-pasturestack.2</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -34,8 +34,7 @@
         <!-- needed for CheckStyle -->
         <main.basedir>${project.parent.basedir}</main.basedir>
 
-        <pax.exam.version>2.6.0</pax.exam.version>
-        <pax.runner.version>1.8.6</pax.runner.version>
+        <groovy.version>3.0.25</groovy.version>
     </properties>
 
     <build>
@@ -295,6 +294,8 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>**/module-info.class</exclude>
+                                        <!-- Dependency test settings must not change consumers' JUnit execution mode. -->
+                                        <exclude>junit-platform.properties</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -658,7 +659,7 @@
         <dependency>
             <groupId>io.github.classgraph</groupId>
             <artifactId>classgraph</artifactId>
-            <version>4.8.184</version>
+            <version>4.8.193</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -782,7 +783,13 @@
             <groupId>com.atomikos</groupId>
             <artifactId>transactions-jdbc</artifactId>
             <scope>test</scope>
-            <version>3.9.3</version>
+            <version>6.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.atomikos</groupId>
+            <artifactId>transactions-jta</artifactId>
+            <scope>test</scope>
+            <version>6.0.1</version>
         </dependency>
         <dependency>
             <groupId>javax.transaction</groupId>
@@ -794,47 +801,37 @@
         <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.core</artifactId>
-            <version>4.2.0</version>
+            <version>6.0.0</version>
             <scope>provided</scope>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.apache.felix.utils</artifactId>
+            <version>1.11.8</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.codehaus.groovy</groupId>
-            <artifactId>groovy-all</artifactId>
-            <version>2.4.21</version>
-            <scope>provided</scope>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- OSGI testing -->
-        <dependency>
-            <groupId>org.ops4j.pax.exam</groupId>
-            <artifactId>pax-exam-junit4</artifactId>
-            <version>${pax.exam.version}</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <artifactId>junit</artifactId>
-                    <groupId>junit</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.ops4j.pax.exam</groupId>
-            <artifactId>pax-exam-container-paxrunner</artifactId>
-            <version>${pax.exam.version}</version>
+            <artifactId>groovy</artifactId>
+            <version>${groovy.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.ops4j.pax.exam</groupId>
-            <artifactId>pax-exam-link-mvn</artifactId>
-            <version>${pax.exam.version}</version>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy-jsr223</artifactId>
+            <version>${groovy.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.ops4j.pax.runner</groupId>
-            <artifactId>pax-runner-no-jcl</artifactId>
-            <version>${pax.runner.version}</version>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy-test</artifactId>
+            <version>${groovy.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- HyperLogLog testing -->
@@ -874,7 +871,7 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>rabbitmq</artifactId>
+            <artifactId>testcontainers-rabbitmq</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -886,7 +883,7 @@
         <dependency>
             <groupId>com.rabbitmq.jms</groupId>
             <artifactId>rabbitmq-jms</artifactId>
-            <version>3.6.0</version>
+            <version>3.9.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -898,22 +895,22 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mysql</artifactId>
+            <artifactId>testcontainers-mysql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mssqlserver</artifactId>
+            <artifactId>testcontainers-mssqlserver</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mariadb</artifactId>
+            <artifactId>testcontainers-mariadb</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -933,12 +930,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-xe</artifactId>
+            <artifactId>testcontainers-oracle-xe</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-free</artifactId>
+            <artifactId>testcontainers-oracle-free</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -969,7 +966,7 @@
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>7.0.2</version>
+            <version>7.1.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>

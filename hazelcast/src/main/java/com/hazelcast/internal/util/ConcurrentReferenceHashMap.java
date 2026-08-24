@@ -1271,14 +1271,18 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V>
         if (check != sum) {
             // Resort to locking all segments
             sum = 0;
-            for (int i = 0; i < segments.length; ++i) {
-                segments[i].lock();
-            }
-            for (int i = 0; i < segments.length; ++i) {
-                sum += segments[i].count;
-            }
-            for (int i = 0; i < segments.length; ++i) {
-                segments[i].unlock();
+            int lockedCount = 0;
+            try {
+                for (; lockedCount < segments.length; ++lockedCount) {
+                    segments[lockedCount].lock();
+                }
+                for (Segment<K, V> segment : segments) {
+                    sum += segment.count;
+                }
+            } finally {
+                for (int i = lockedCount - 1; i >= 0; --i) {
+                    segments[i].unlock();
+                }
             }
         }
         return sum > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) sum;
@@ -1361,11 +1365,12 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V>
             }
         }
         // Resort to locking all segments
-        for (int i = 0; i < segments.length; ++i) {
-            segments[i].lock();
-        }
         boolean found = false;
+        int lockedCount = 0;
         try {
+            for (; lockedCount < segments.length; ++lockedCount) {
+                segments[lockedCount].lock();
+            }
             for (int i = 0; i < segments.length; ++i) {
                 if (segments[i].containsValue(value)) {
                     found = true;
@@ -1373,7 +1378,7 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V>
                 }
             }
         } finally {
-            for (int i = 0; i < segments.length; ++i) {
+            for (int i = lockedCount - 1; i >= 0; --i) {
                 segments[i].unlock();
             }
         }

@@ -232,7 +232,7 @@ public class JobConfigTest extends JetTestSupport {
 
         URL mockUrl;
         try {
-            File file = File.createTempFile("jobConfig", "suffix");
+            File file = java.nio.file.Files.createTempFile("jobConfig", "suffix").toFile();
             mockUrl = file.toURI().toURL();
         } catch (Exception e) {
             throw new RuntimeException(e);

@@ -80,7 +80,6 @@ class PythonServiceContext {
     PythonServiceContext(ProcessorSupplier.Context context, PythonServiceConfig cfg) {
         logger = context.hazelcastInstance().getLoggingService()
                 .getLogger(getClass().getPackage().getName());
-        checkIfPythonIsAvailable();
         this.channelFn = cfg.channelFn();
         try {
             long start = System.nanoTime();
@@ -111,26 +110,6 @@ class PythonServiceContext {
                     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));
         } catch (Exception e) {
             throw new JetException("PythonService initialization failed: " + e, e);
-        }
-    }
-
-    private void checkIfPythonIsAvailable() {
-        try {
-            Process process = new ProcessBuilder("python3", "--version").redirectErrorStream(true).start();
-            process.waitFor();
-            try (InputStream inputStream = process.getInputStream()) {
-                String output = new String(inputStream.readAllBytes(), UTF_8);
-                if (process.exitValue() != 0) {
-                    logger.severe("python3 version check returned non-zero exit value, output: " + output);
-                    throw new IllegalStateException("python3 is not available");
-                }
-                if (!output.startsWith("Python 3")) {
-                    logger.severe("python3 version check returned unknown version, output: " + output);
-                    throw new IllegalStateException("python3 is not available");
-                }
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException("python3 is not available", e);
         }
     }
 

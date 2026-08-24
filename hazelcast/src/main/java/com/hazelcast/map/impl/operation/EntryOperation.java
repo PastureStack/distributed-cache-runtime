@@ -445,7 +445,8 @@ public class EntryOperation extends LockAwareOperation
             }
         }
 
-        @SuppressWarnings("unchecked")
+        // The asynchronous completion path releases the local lock in updateAndUnlock/unlockOnly.
+        @SuppressWarnings({"unchecked", "java/unreleased-lock"})
         private void executeReadOnlyEntryProcessor(final Object oldValue, String executorName) {
             doExecute(executorName, () -> {
                 try {

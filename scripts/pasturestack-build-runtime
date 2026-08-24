@@ -3,18 +3,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-runtime_version=5.7.3
+runtime_version=5.7.3-pasturestack.2
 output_dir=${PASTURESTACK_OUTPUT_DIR:-dist}
 jar_source="hazelcast/target/hazelcast-${runtime_version}.jar"
 jar_target="${output_dir}/hazelcast-${runtime_version}.jar"
 
 # Fail before compiling if a reviewed security floor is accidentally reverted.
 if find . -name pom.xml -type f -exec grep -l '<version>5.7.0</version>' {} + | grep -q .; then
-    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.3' >&2
+    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.3-pasturestack.2' >&2
     exit 1
 fi
-grep -Fq '<spring.boot3.version>3.5.15</spring.boot3.version>' hazelcast-parent/pom.xml
+grep -Fq '<spring.boot3.version>3.5.16</spring.boot3.version>' hazelcast-parent/pom.xml
 grep -Fq '<jdk.version>25</jdk.version>' hazelcast-parent/pom.xml
+grep -Fq '<hazelcast.runtime.version>5.7.3</hazelcast.runtime.version>' hazelcast-parent/pom.xml
+grep -Fq 'VERSION = "${hazelcast.runtime.version}"' hazelcast/src/main/template/com/hazelcast/instance/GeneratedBuildProperties.java
+grep -Fq '<exclude>junit-platform.properties</exclude>' hazelcast/pom.xml
 grep -Fxq 'FROM eclipse-temurin:25.0.4_7-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3 AS build' Dockerfile.pasturestack
 grep -Fxq 'ENV MAVEN_OPTS="-Xms256m -Xmx1200m -XX:+UseSerialGC"' Dockerfile.pasturestack
 grep -Fq 'apt-get install --yes --no-install-recommends unzip' Dockerfile.pasturestack
@@ -47,11 +50,12 @@ grep -Fq '<protobuf.version>36.0</protobuf.version>' hazelcast-parent/pom.xml
 grep -Fq '<netty.version>4.2.17.Final</netty.version>' hazelcast-parent/pom.xml
 grep -A2 -F '<artifactId>lettuce-core</artifactId>' extensions/kafka-connect/pom.xml | grep -Fq '<version>7.7.0.RELEASE</version>'
 grep -Fq '<org.springframework6.version>6.2.19</org.springframework6.version>' hazelcast-parent/pom.xml
-grep -Fq '<spring.boot4.version>4.1.0</spring.boot4.version>' hazelcast-parent/pom.xml
-grep -Fq '<org.springframework7.version>7.0.8</org.springframework7.version>' hazelcast-parent/pom.xml
-grep -Fq '<mina.version>2.0.31</mina.version>' hazelcast-parent/pom.xml
+grep -Fq '<spring.boot4.version>4.1.1</spring.boot4.version>' hazelcast-parent/pom.xml
+grep -Fq '<org.springframework7.version>7.0.9</org.springframework7.version>' hazelcast-parent/pom.xml
+grep -Fq '<mina.version>2.2.9</mina.version>' hazelcast-parent/pom.xml
+grep -Fq '<kafka.version>4.3.1</kafka.version>' hazelcast-parent/pom.xml
 grep -Fq '<postgresql.version>42.7.13</postgresql.version>' hazelcast-parent/pom.xml
-grep -Fq '<tomcat.embed.version>11.0.24</tomcat.embed.version>' hazelcast-parent/pom.xml
+grep -Fq '<tomcat.embed.version>11.0.25</tomcat.embed.version>' hazelcast-parent/pom.xml
 grep -Fq '<hibernate.orm.version>7.4.5.Final</hibernate.orm.version>' hazelcast-parent/pom.xml
 grep -Fq '<aircompressor.version>2.0.3</aircompressor.version>' hazelcast-parent/pom.xml
 grep -Fq '<grpc.version>1.83.1</grpc.version>' hazelcast-parent/pom.xml
@@ -63,18 +67,18 @@ grep -Fq '<elasticsearch.java.version>9.5.1</elasticsearch.java.version>' extens
 grep -Fq '<artifactId>elasticsearch-java</artifactId>' extensions/elasticsearch/elasticsearch-7/pom.xml
 grep -A2 -F '<artifactId>httpcore5</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.4.3</version>'
 grep -A2 -F '<artifactId>httpcore5-h2</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.4.3</version>'
-grep -A2 -F '<artifactId>httpclient5</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.6.3</version>'
-grep -A2 -F '<artifactId>commons-configuration2</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>2.15.0</version>'
-grep -A2 -F '<artifactId>opentelemetry-api</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.62.0</version>'
-grep -A2 -F '<artifactId>log4j-bom</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>2.25.5</version>'
+grep -A2 -F '<artifactId>httpclient5</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.6.4</version>'
+grep -A2 -F '<artifactId>commons-configuration2</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>2.15.1</version>'
+grep -A2 -F '<artifactId>opentelemetry-api</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.65.0</version>'
+grep -A2 -F '<artifactId>log4j-bom</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>2.26.1</version>'
 grep -A2 -F '<artifactId>bcprov-jdk18on</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.85</version>'
-grep -A2 -F '<artifactId>zookeeper</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.8.6</version>'
-grep -A2 -F '<artifactId>wire-runtime-jvm</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>6.3.0</version>'
-grep -A2 -F '<artifactId>micrometer-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.16.7</version>'
-grep -A2 -F '<artifactId>amqp-client</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.33.1</version>'
-grep -A2 -F '<artifactId>plexus-utils</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.6.1</version>'
-grep -A2 -F '<artifactId>logback-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.5.34</version>'
-grep -A2 -F '<artifactId>vertx-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>4.5.27</version>'
+grep -A2 -F '<artifactId>zookeeper</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.9.5</version>'
+grep -A2 -F '<artifactId>wire-runtime-jvm</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>6.4.6</version>'
+grep -A2 -F '<artifactId>micrometer-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.17.1</version>'
+grep -A2 -F '<artifactId>amqp-client</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.35.0</version>'
+grep -A2 -F '<artifactId>plexus-utils</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>4.1.0</version>'
+grep -A2 -F '<artifactId>logback-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.6.3</version>'
+grep -A2 -F '<artifactId>vertx-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.1.6</version>'
 if grep -Fq '<id>spring-5</id>' hazelcast-parent/pom.xml hazelcast-spring-tests/pom.xml; then
     echo 'PASTURESTACK_EOL_PROFILE_PRESENT profile=spring-5' >&2
     exit 1
@@ -112,9 +116,9 @@ grep -Fq '<version>${postgresql.version}</version>' hazelcast-parent/pom.xml
 grep -Fq '<version>${tomcat.embed.version}</version>' pom.xml
 grep -Fq '<groupId>org.hibernate.orm</groupId>' hazelcast-it/distribution-it/pom.xml
 grep -Fq '<version>${hibernate.orm.version}</version>' hazelcast-it/distribution-it/pom.xml
-grep -Fq '<version>5.7.3</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
-grep -Fq '<version>5.7.3</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
-grep -Fq '<version>5.7.3</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -Fq '<version>5.7.3-pasturestack.2</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>5.7.3-pasturestack.2</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>5.7.3-pasturestack.2</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
@@ -139,9 +143,21 @@ if (( $# != 0 )); then
     exit 2
 fi
 
+vcs_ref=${PASTURESTACK_VCS_REF:-}
+if [[ -z $vcs_ref ]] && command -v git >/dev/null 2>&1; then
+    vcs_ref=$(git rev-parse --verify HEAD 2>/dev/null || true)
+fi
+if [[ ! $vcs_ref =~ ^[0-9A-Za-z._-]{7,64}$ ]]; then
+    echo 'PASTURESTACK_VCS_REF_INVALID expected=nonempty-safe-revision' >&2
+    exit 1
+fi
+vcs_abbrev=${vcs_ref:0:7}
+
 ./mvnw -B -pl hazelcast -am \
     -Dmaven.compiler.fork=false \
     -Dkotlin.compiler.daemon=false \
+    "-Dgit.commit.id=${vcs_ref}" \
+    "-Dgit.commit.id.abbrev=${vcs_abbrev}" \
     -Dmaven.test.skip=true \
     -Dassembly.skipAssembly=true \
     -Dlicense.skip=true \
@@ -191,6 +207,10 @@ test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.fasterxml.jack
 test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties")" = "2.22.2"
 test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/tools.jackson.core/jackson-core/pom.properties")" = "3.2.2"
 test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/tools.jackson.core/jackson-databind/pom.properties")" = "3.2.2"
+javap -classpath "$jar_target" -constants com.hazelcast.instance.GeneratedBuildProperties \
+    > "$metadata_dir/generated-build-properties.txt"
+grep -Fq "REVISION = \"${vcs_abbrev}\";" "$metadata_dir/generated-build-properties.txt"
+grep -Fq "COMMIT_ID = \"${vcs_ref}\";" "$metadata_dir/generated-build-properties.txt"
 
 jar_name=$(basename "$jar_target")
 (

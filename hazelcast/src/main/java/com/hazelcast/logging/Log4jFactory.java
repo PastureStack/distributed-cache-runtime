@@ -23,6 +23,8 @@ import org.apache.log4j.spi.LoggingEvent;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
+import static com.hazelcast.logging.LoggerFactorySupport.sanitizeLogMessage;
+
 public class Log4jFactory extends LoggerFactorySupport implements LoggerFactory {
 
     @Override
@@ -49,12 +51,12 @@ public class Log4jFactory extends LoggerFactorySupport implements LoggerFactory 
 
         @Override
         public void log(Level level, String message) {
-            logger.log(toLog4jLevel(level), message);
+            logger.log(toLog4jLevel(level), sanitizeLogMessage(message));
         }
 
         @Override
         public void log(Level level, String message, Throwable thrown) {
-            logger.log(toLog4jLevel(level), message, thrown);
+            logger.log(toLog4jLevel(level), sanitizeLogMessage(message), thrown);
         }
 
         @Override
@@ -77,7 +79,7 @@ public class Log4jFactory extends LoggerFactorySupport implements LoggerFactory 
             String name = logEvent.getLogRecord().getLoggerName();
             org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(name);
             org.apache.log4j.Level level = toLog4jLevel(eventLevel);
-            String message = logRecord.getMessage();
+            String message = sanitizeLogMessage(logRecord.getMessage());
             Throwable throwable = logRecord.getThrown();
             logger.callAppenders(new LoggingEvent(name, logger, level, message, throwable));
         }

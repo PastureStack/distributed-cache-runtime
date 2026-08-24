@@ -23,6 +23,7 @@ import org.osgi.framework.BundleException;
 import org.osgi.framework.ServiceReference;
 import org.osgi.framework.Version;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -164,7 +165,7 @@ public class TestBundle implements Bundle {
 
     @Override
     public String getLocation() {
-        throw new UnsupportedOperationException();
+        return "test:com.hazelcast";
     }
 
     @Override
@@ -200,6 +201,21 @@ public class TestBundle implements Bundle {
     @Override
     public Version getVersion() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public File getDataFile(String filename) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public <A> A adapt(Class<A> type) {
+        return type.isInstance(this) ? type.cast(this) : null;
+    }
+
+    @Override
+    public int compareTo(Bundle other) {
+        return Long.compare(getBundleId(), other.getBundleId());
     }
 
     interface RegisterDeregisterListener {

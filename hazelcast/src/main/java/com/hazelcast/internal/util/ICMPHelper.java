@@ -16,9 +16,9 @@
 
 package com.hazelcast.internal.util;
 
-import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 import static com.hazelcast.internal.nio.IOUtil.getFileFromResourcesAsStream;
@@ -47,11 +47,12 @@ public final class ICMPHelper {
 
     private static String extractBundledLib() {
         try (InputStream src = getFileFromResourcesAsStream(getBundledLibraryPath())) {
-            File dest = File.createTempFile("hazelcast-libicmp-helper-", ".so");
+            Path dest = Files.createTempFile("hazelcast-libicmp-helper-", ".so");
+            dest.toFile().deleteOnExit();
 
-            Files.copy(src, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
 
-            return dest.getAbsolutePath();
+            return dest.toAbsolutePath().toString();
         } catch (Throwable t) {
             throw rethrow(t);
         }

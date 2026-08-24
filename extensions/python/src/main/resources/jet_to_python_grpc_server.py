@@ -63,7 +63,7 @@ def serve(phoneback_port, handler_module_name, handler_function_name):
     if stdin_message == 'stop':
         logger.info('Received a "stop" message from stdin. Stopping the server.')
     else:
-        logger.info('Received an unexpected message from stdin: "%s"' % stdin_message)
+        logger.info('Received an unexpected message from stdin: "%s"', stdin_message)
     server.stop(0).wait()
 
 

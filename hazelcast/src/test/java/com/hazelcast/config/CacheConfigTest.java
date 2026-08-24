@@ -368,7 +368,7 @@ public class CacheConfigTest extends HazelcastTestSupport {
 
     @Test
     public void cacheCacheManagerByLocationJarFileTest() throws Exception {
-        File jcacheConfigFile = File.createTempFile("jcache_config_", ".jar");
+        File jcacheConfigFile = java.nio.file.Files.createTempFile("jcache_config_", ".jar").toFile();
         JarUtil.createJarFile(
                 "src/test/resources/",
                 newArrayList("test-hazelcast-jcache.xml"),

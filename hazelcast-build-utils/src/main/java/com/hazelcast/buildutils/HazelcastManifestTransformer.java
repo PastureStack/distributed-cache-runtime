@@ -16,7 +16,7 @@
 
 package com.hazelcast.buildutils;
 
-import aQute.lib.osgi.Instruction;
+import aQute.bnd.osgi.Instruction;
 import org.apache.maven.plugins.shade.relocation.Relocator;
 import org.apache.maven.plugins.shade.resource.ManifestResourceTransformer;
 import org.slf4j.Logger;
@@ -225,7 +225,7 @@ public class HazelcastManifestTransformer extends ManifestResourceTransformer {
             List<String> packageInstructions = ElementParser.parseDelimitedString(importPackageInstructions, ',', true);
             for (String packageInstruction : packageInstructions) {
                 PackageDefinition packageDefinition = new PackageDefinition(packageInstruction);
-                Instruction instruction = Instruction.getPattern(packageDefinition.packageName);
+                Instruction instruction = Instruction.legacy(packageDefinition.packageName);
                 LOGGER.debug("Compiled import instruction '{}' -> {}", packageInstruction, instruction);
                 importOverrideInstructions.add(new InstructionDefinition(packageDefinition, instruction));
             }
@@ -235,7 +235,7 @@ public class HazelcastManifestTransformer extends ManifestResourceTransformer {
             List<String> packageInstructions = ElementParser.parseDelimitedString(exportPackageInstructions, ',', true);
             for (String packageInstruction : packageInstructions) {
                 PackageDefinition packageDefinition = new PackageDefinition(packageInstruction);
-                Instruction instruction = Instruction.getPattern(packageDefinition.packageName);
+                Instruction instruction = Instruction.legacy(packageDefinition.packageName);
                 LOGGER.debug("Compiled export instruction '{}' -> {}", packageInstruction, instruction);
                 exportOverrideInstructions.add(new InstructionDefinition(packageDefinition, instruction));
             }

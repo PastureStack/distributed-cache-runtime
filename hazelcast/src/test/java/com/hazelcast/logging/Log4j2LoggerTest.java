@@ -111,4 +111,10 @@ public class Log4j2LoggerTest extends AbstractLoggerTest {
         hazelcastLogger.log(LOG_EVENT);
         verify(mockLogger, times(1)).logIfEnabled(LOGGER_NAME, WARN, null, MESSAGE, THROWABLE);
     }
+
+    @Test
+    public void log_shouldEscapeLineBreaks() {
+        hazelcastLogger.info("first\r\nsecond");
+        verify(mockLogger, times(1)).logIfEnabled(LOGGER_NAME, INFO, null, "first\\r\\nsecond");
+    }
 }

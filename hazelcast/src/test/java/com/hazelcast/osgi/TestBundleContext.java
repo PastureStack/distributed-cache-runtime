@@ -23,7 +23,9 @@ import org.osgi.framework.BundleListener;
 import org.osgi.framework.Filter;
 import org.osgi.framework.FrameworkListener;
 import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceFactory;
 import org.osgi.framework.ServiceListener;
+import org.osgi.framework.ServiceObjects;
 import org.osgi.framework.ServiceReference;
 import org.osgi.framework.ServiceRegistration;
 
@@ -70,6 +72,11 @@ class TestBundleContext implements BundleContext {
     }
 
     @Override
+    public Bundle getBundle(String location) {
+        return testBundle.getLocation().equals(location) ? testBundle : null;
+    }
+
+    @Override
     public Bundle[] getBundles() {
         return new Bundle[]{testBundle};
     }
@@ -90,6 +97,19 @@ class TestBundleContext implements BundleContext {
                 new TestServiceReference(testBundle, service, counter.incrementAndGet());
         registerServiceInternal(clazz, serviceReference);
         return new TestServiceRegistration(serviceReference);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <S> ServiceRegistration<S> registerService(Class<S> clazz, S service, Dictionary<String, ?> properties) {
+        return registerService(clazz.getName(), service, properties);
+    }
+
+    @Override
+    public <S> ServiceRegistration<S> registerService(
+            Class<S> clazz, ServiceFactory<S> factory, Dictionary<String, ?> properties
+    ) {
+        throw new UnsupportedOperationException();
     }
 
     private void registerServiceInternal(String clazz, TestServiceReference serviceReference) {
@@ -166,6 +186,18 @@ class TestBundleContext implements BundleContext {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public <S> ServiceReference<S> getServiceReference(Class<S> clazz) {
+        return getServiceReference(clazz.getName());
+    }
+
+    @Override
+    public <S> java.util.Collection<ServiceReference<S>> getServiceReferences(Class<S> clazz, String filter)
+            throws InvalidSyntaxException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Object getService(ServiceReference reference) {
         if (reference instanceof TestServiceReference serviceReference) {
             return serviceReference.getService();
@@ -193,6 +225,11 @@ class TestBundleContext implements BundleContext {
         } else {
             throw new IllegalArgumentException("Only `TestServiceReference` instances are supported!");
         }
+    }
+
+    @Override
+    public <S> ServiceObjects<S> getServiceObjects(ServiceReference<S> reference) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

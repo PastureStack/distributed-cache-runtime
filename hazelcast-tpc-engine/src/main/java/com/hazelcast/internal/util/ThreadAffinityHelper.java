@@ -23,9 +23,9 @@ import com.hazelcast.internal.tpcengine.util.JVM;
 import com.hazelcast.internal.tpcengine.util.OS;
 import net.openhft.affinity.Affinity;
 
-import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.BitSet;
 
@@ -107,9 +107,10 @@ public final class ThreadAffinityHelper {
         InputStream src = null;
         try {
             src = CloseUtil.class.getClassLoader().getResourceAsStream("lib/linux-x86_64/libaffinity_helper.so");
-            File dest = File.createTempFile("hazelcast-libaffinity-helper-", ".so");
-            Files.copy(src, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            return dest.getAbsolutePath();
+            Path dest = Files.createTempFile("hazelcast-libaffinity-helper-", ".so");
+            dest.toFile().deleteOnExit();
+            Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
+            return dest.toAbsolutePath().toString();
 
         } catch (Error | RuntimeException e) {
             throw e;

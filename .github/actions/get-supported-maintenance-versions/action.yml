@@ -20,8 +20,11 @@ runs:
 
     - shell: ${{ env.shell }}
       id: get-maintenance-versions-including-extended-support-plus
+      env:
+        MAINTENANCE_VERSIONS: ${{ steps.get-maintenance-versions.outputs.versions }}
+        EXTENDED_SUPPORT_PLUS_VERSIONS: ${{ steps.get-extended-support-plus-versions.outputs.versions }}
       run: |
         echo "versions=$(jq --compact-output --null-input \
-          --argjson maintenance '${{ steps.get-maintenance-versions.outputs.versions }}' \
-          --argjson extended_support_plus '${{ steps.get-extended-support-plus-versions.outputs.versions }}' \
+          --argjson maintenance "${MAINTENANCE_VERSIONS}" \
+          --argjson extended_support_plus "${EXTENDED_SUPPORT_PLUS_VERSIONS}" \
           '$maintenance + $extended_support_plus | unique')" >> "${GITHUB_OUTPUT}"

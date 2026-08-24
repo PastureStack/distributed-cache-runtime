@@ -81,20 +81,24 @@ public class MapLockTest extends HazelcastTestSupport {
         final CountDownLatch latch = new CountDownLatch(1);
 
         Runnable runnable = () -> {
-            for (int i = 0; i < size; i++) {
-                map1.lock(i);
-                sleepMillis(100);
-            }
-            for (int i = 0; i < size; i++) {
-                assertTrue(map1.isLocked(i));
-            }
-            for (int i = 0; i < size; i++) {
-                map1.unlock(i);
+            int acquired = 0;
+            try {
+                for (; acquired < size; acquired++) {
+                    map1.lock(acquired);
+                    sleepMillis(100);
+                }
+                for (int i = 0; i < size; i++) {
+                    assertTrue(map1.isLocked(i));
+                }
+            } finally {
+                for (int i = acquired - 1; i >= 0; i--) {
+                    map1.unlock(i);
+                }
+                latch.countDown();
             }
             for (int i = 0; i < size; i++) {
                 assertFalse(map1.isLocked(i));
             }
-            latch.countDown();
         };
         new Thread(runnable).start();
         try {

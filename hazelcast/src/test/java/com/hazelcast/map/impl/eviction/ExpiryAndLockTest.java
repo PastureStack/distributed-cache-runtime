@@ -62,16 +62,23 @@ public class ExpiryAndLockTest extends HazelcastTestSupport {
             map.set(KEY, "value", 4, TimeUnit.SECONDS);
             // short time after adding it to the map, all ok
             map.lock(KEY);
-            Object object = map.get(KEY);
-            map.unlock(KEY);
+            Object object;
+            try {
+                object = map.get(KEY);
+            } finally {
+                map.unlock(KEY);
+            }
             assertNotNull(object);
 
             sleepAtLeastSeconds(5);
 
             // more than one second after adding it, now it should be away
             map.lock(KEY);
-            object = map.get(KEY);
-            map.unlock(KEY);
+            try {
+                object = map.get(KEY);
+            } finally {
+                map.unlock(KEY);
+            }
             assertNull(object);
         } finally {
             node.shutdown();

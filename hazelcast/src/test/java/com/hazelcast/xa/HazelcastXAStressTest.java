@@ -44,7 +44,7 @@ public class HazelcastXAStressTest extends HazelcastTestSupport {
     private HazelcastInstance instance;
 
     private static Xid createXid() {
-        return new XID(randomString(), "test");
+        return new XID(randomString(), "test", "hazelcast");
     }
 
     @Before

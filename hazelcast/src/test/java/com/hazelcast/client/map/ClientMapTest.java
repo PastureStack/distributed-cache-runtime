@@ -663,35 +663,39 @@ public class ClientMapTest extends HazelcastTestSupport {
     public void testTryLock() throws Exception {
         final IMap<String, String> map = createMap();
         assertTrue(map.tryLock("key1", 2, TimeUnit.SECONDS));
-
-        final CountDownLatch latch = new CountDownLatch(1);
-        new Thread(() -> {
-            try {
-                if (!map.tryLock("key1", 2, TimeUnit.SECONDS)) {
-                    latch.countDown();
+        try {
+            final CountDownLatch latch = new CountDownLatch(1);
+            new Thread(() -> {
+                try {
+                    if (!map.tryLock("key1", 2, TimeUnit.SECONDS)) {
+                        latch.countDown();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
-        assertOpenEventually(latch);
-        assertTrue(map.isLocked("key1"));
+            }).start();
+            assertOpenEventually(latch);
+            assertTrue(map.isLocked("key1"));
 
-        final CountDownLatch latch2 = new CountDownLatch(1);
-        new Thread(() -> {
-            try {
-                if (map.tryLock("key1", 20, TimeUnit.SECONDS)) {
-                    latch2.countDown();
+            final CountDownLatch latch2 = new CountDownLatch(1);
+            new Thread(() -> {
+                try {
+                    if (map.tryLock("key1", 20, TimeUnit.SECONDS)) {
+                        latch2.countDown();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            }).start();
+            Thread.sleep(1000);
+            map.unlock("key1");
+            assertOpenEventually(latch2);
+            assertTrue(map.isLocked("key1"));
+        } finally {
+            if (map.isLocked("key1")) {
+                map.forceUnlock("key1");
             }
-        }).start();
-        Thread.sleep(1000);
-        map.unlock("key1");
-        assertOpenEventually(latch2);
-        assertTrue(map.isLocked("key1"));
-        map.forceUnlock("key1");
+        }
     }
 
     @Test

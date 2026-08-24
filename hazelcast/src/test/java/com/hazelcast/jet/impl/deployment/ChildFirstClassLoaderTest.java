@@ -54,11 +54,11 @@ public class ChildFirstClassLoaderTest {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        File jarFile = File.createTempFile("resources_", ".jar");
+        File jarFile = java.nio.file.Files.createTempFile("resources_", ".jar").toFile();
         JarUtil.createResourcesJarFile(jarFile);
         jarUrl = jarFile.toURI().toURL();
 
-        File emptyJarFile = File.createTempFile("empty", ".jar");
+        File emptyJarFile = java.nio.file.Files.createTempFile("empty", ".jar").toFile();
         emptyJarUrl = emptyJarFile.toURI().toURL();
     }
 

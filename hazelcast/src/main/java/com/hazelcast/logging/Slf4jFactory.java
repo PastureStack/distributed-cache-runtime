@@ -22,6 +22,8 @@ import org.slf4j.LoggerFactory;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
+import static com.hazelcast.logging.LoggerFactorySupport.sanitizeLogMessage;
+
 public class Slf4jFactory extends LoggerFactorySupport {
 
     @Override
@@ -40,6 +42,7 @@ public class Slf4jFactory extends LoggerFactorySupport {
 
         @Override
         public void log(Level level, String message) {
+            message = sanitizeLogMessage(message);
             if (level == Level.FINEST) {
                 logger.trace(message);
             } else if (level == Level.FINER || level == Level.FINE) {
@@ -57,6 +60,7 @@ public class Slf4jFactory extends LoggerFactorySupport {
 
         @Override
         public void log(Level level, String message, Throwable thrown) {
+            message = sanitizeLogMessage(message);
             if (level == Level.FINEST) {
                 logger.trace(message, thrown);
             } else if (level == Level.FINER || level == Level.FINE) {

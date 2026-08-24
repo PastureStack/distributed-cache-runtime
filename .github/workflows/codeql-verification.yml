@@ -30,8 +30,8 @@ jobs:
       - name: Install verified Temurin LTS JDK
         shell: bash
         env:
-          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4%2B7/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4_7.tar.gz
-          JDK_SHA256: e58fcdcd637b25c03ca84cbbcefc70d11efb8f4b4cbd05decc9f661769d77f94
+          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz
+          JDK_SHA256: dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/temurin-jdk.tar.gz"

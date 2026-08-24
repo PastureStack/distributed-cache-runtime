@@ -654,12 +654,16 @@ public class SinksTest extends PipelineTestSupport {
                 entry -> new IncrementEntryProcessor<>(10));
 
         // Then
-        p.readFrom(Sources.<String, Integer>map(srcName)).writeTo(sink);
-        Job job = hz().getJet().newJob(p);
-        assertThat(job).eventuallyHasStatus(JobStatus.RUNNING);
-        assertEquals(1, srcMap.size());
-        assertEquals(1, srcMap.get("key").intValue());
-        srcMap.unlock("key");
+        Job job;
+        try {
+            p.readFrom(Sources.<String, Integer>map(srcName)).writeTo(sink);
+            job = hz().getJet().newJob(p);
+            assertThat(job).eventuallyHasStatus(JobStatus.RUNNING);
+            assertEquals(1, srcMap.size());
+            assertEquals(1, srcMap.get("key").intValue());
+        } finally {
+            srcMap.unlock("key");
+        }
         assertTrueEventually(() -> assertEquals(11, srcMap.get("key").intValue()), 10);
         job.join();
     }

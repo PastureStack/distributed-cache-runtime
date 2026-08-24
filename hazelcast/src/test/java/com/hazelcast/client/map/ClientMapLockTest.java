@@ -161,9 +161,13 @@ public class ClientMapLockTest {
         final IMap map = client.getMap(randomString());
         final String key = "key";
         map.lock(key);
-        map.lock(key);
-        map.unlock(key);
-        assertTrue(map.isLocked(key));
+        try {
+            map.lock(key);
+            map.unlock(key);
+            assertTrue(map.isLocked(key));
+        } finally {
+            map.forceUnlock(key);
+        }
     }
 
     @Test(expected = NullPointerException.class)
@@ -200,9 +204,13 @@ public class ClientMapLockTest {
         final IMap map = client.getMap(randomString());
         final String key = "key";
         map.lock(key);
-        map.lock(key);
-        map.unlock(key);
-        assertTrue(map.isLocked(key));
+        try {
+            map.lock(key);
+            map.unlock(key);
+            assertTrue(map.isLocked(key));
+        } finally {
+            map.forceUnlock(key);
+        }
     }
 
     @Test
@@ -329,13 +337,19 @@ public class ClientMapLockTest {
         final CountDownLatch checkingKeySet = new CountDownLatch(1);
 
         new Thread(() -> {
+            boolean locked = false;
             try {
                 map.lock(key);
+                locked = true;
                 map.put(key, value);
                 putWhileLocked.countDown();
                 checkingKeySet.await();
-                map.unlock(key);
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                if (locked) {
+                    map.unlock(key);
+                }
             }
         }).start();
 
@@ -355,13 +369,19 @@ public class ClientMapLockTest {
         final CountDownLatch checkingKeySet = new CountDownLatch(1);
 
         new Thread(() -> {
+            boolean locked = false;
             try {
                 map.lock(key);
+                locked = true;
                 map.put(key, value);
                 putWhileLocked.countDown();
                 checkingKeySet.await();
-                map.unlock(key);
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                if (locked) {
+                    map.unlock(key);
+                }
             }
         }).start();
 
@@ -381,13 +401,19 @@ public class ClientMapLockTest {
         map.put(key, value);
 
         new Thread(() -> {
+            boolean locked = false;
             try {
                 map.lock(key);
+                locked = true;
                 map.remove(key);
                 removeWhileLocked.countDown();
                 checkingKey.await();
-                map.unlock(key);
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                if (locked) {
+                    map.unlock(key);
+                }
             }
         }).start();
 
@@ -608,12 +634,15 @@ public class ClientMapLockTest {
         final String key = randomString();
 
         map.lock(key);
-        assertTrueEventually(() -> {
-            String payload = randomString();
-            Object ret = map.executeOnKey(key, new LockEntryProcessor(payload));
-            assertEquals(payload, ret);
-        }, 30);
-        map.unlock(key);
+        try {
+            assertTrueEventually(() -> {
+                String payload = randomString();
+                Object ret = map.executeOnKey(key, new LockEntryProcessor(payload));
+                assertEquals(payload, ret);
+            }, 30);
+        } finally {
+            map.unlock(key);
+        }
     }
 
     private static class LockEntryProcessor implements EntryProcessor<Object, Object, String>, Serializable {

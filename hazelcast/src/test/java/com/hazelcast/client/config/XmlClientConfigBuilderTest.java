@@ -115,7 +115,7 @@ public class XmlClientConfigBuilderTest extends AbstractClientConfigBuilderTest 
     @Override
     @Test(expected = HazelcastException.class)
     public void loadingThroughSystemProperty_nonExistingFile() throws IOException {
-        File file = File.createTempFile("foo", ".xml");
+        File file = java.nio.file.Files.createTempFile("foo", ".xml").toFile();
         delete(file);
         System.setProperty("hazelcast.client.config", file.getAbsolutePath());
 
@@ -129,7 +129,7 @@ public class XmlClientConfigBuilderTest extends AbstractClientConfigBuilderTest 
                 + "    <cluster-name>foobar</cluster-name>\n"
                 + "</hazelcast-client>";
 
-        File file = File.createTempFile("foo", ".xml");
+        File file = java.nio.file.Files.createTempFile("foo", ".xml").toFile();
         file.deleteOnExit();
         PrintWriter writer = new PrintWriter(file, StandardCharsets.UTF_8);
         writer.println(xml);

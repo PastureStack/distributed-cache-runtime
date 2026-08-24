@@ -18,20 +18,12 @@ package com.hazelcast.internal.util;
 
 import com.hazelcast.function.SupplierEx;
 
-import javax.annotation.Nonnull;
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.InetAddress;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * HostnameUtil contains hostname helper methods
  */
 public final class HostnameUtil {
-
-    public static final int PROCESS_TIMEOUT_IN_SECONDS = 5;
 
     private HostnameUtil() {
     }
@@ -44,20 +36,9 @@ public final class HostnameUtil {
     public static String getLocalHostname() {
         String hostname = System.getenv("HOSTNAME");
         if (hostname == null) {
-            hostname = getOrNull(HostnameUtil::execHostnameCmd);
-        }
-        if (hostname == null) {
             hostname = getOrNull(() -> InetAddress.getLocalHost().getHostName());
         }
         return shortHostname(hostname);
-    }
-
-    @Nonnull
-    private static String execHostnameCmd() throws Exception {
-        Process exec = Runtime.getRuntime().exec("hostname");
-        exec.waitFor(PROCESS_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
-        InputStream stream = exec.getInputStream();
-        return new BufferedReader(new InputStreamReader(stream)).lines().collect(Collectors.joining("\n"));
     }
 
     private static String shortHostname(String hostname) {

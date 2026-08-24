@@ -22,8 +22,6 @@ import org.w3c.dom.Node;
 
 import static com.hazelcast.internal.config.DomConfigHelper.childElements;
 import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
-import static org.ops4j.util.xml.XmlUtils.getTextContent;
-
 public class MyServiceConfigParser extends AbstractXmlConfigHelper implements ServiceConfigurationParser<MyServiceConfig> {
 
     @Override
@@ -34,19 +32,19 @@ public class MyServiceConfigParser extends AbstractXmlConfigHelper implements Se
                 for (Node node : childElements(configNode)) {
                     final String name = cleanNodeName(node);
                     if ("string-prop".equals(name)) {
-                        config.stringProp = getTextContent(node);
+                        config.stringProp = node.getTextContent();
                     } else if ("int-prop".equals(name)) {
-                        String value = getTextContent(node);
+                        String value = node.getTextContent();
                         config.intProp = Integer.parseInt(value);
                     } else if ("bool-prop".equals(name)) {
-                        config.boolProp = Boolean.parseBoolean(getTextContent(node));
+                        config.boolProp = Boolean.parseBoolean(node.getTextContent());
                     } else if ("complex-prop".equals(name)) {
                         Node attribute = node.getAttributes().getNamedItem("an-attribute");
                         config.nestedAttribute = attribute.getTextContent();
                         for (Node nestedNode : childElements(node)) {
                             final String nestedNodeName = cleanNodeName(nestedNode);
                             if ("nested-prop".equals(nestedNodeName)) {
-                                config.nestedStringProp = getTextContent(nestedNode);
+                                config.nestedStringProp = nestedNode.getTextContent();
                             }
                         }
                     }

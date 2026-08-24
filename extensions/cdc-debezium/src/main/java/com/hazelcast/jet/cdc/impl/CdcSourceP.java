@@ -33,6 +33,7 @@ import io.debezium.document.DocumentWriter;
 import io.debezium.relational.history.AbstractSchemaHistory;
 import io.debezium.relational.history.HistoryRecord;
 import io.debezium.relational.history.SchemaHistoryException;
+import org.apache.kafka.common.metrics.PluginMetrics;
 import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -87,6 +88,10 @@ public abstract class CdcSourceP<T> extends AbstractProcessor {
     private final EventTimeMapper<? super T> eventTimeMapper;
 
     private SourceConnector connector;
+    private final JetPluginMetrics connectorPluginMetrics =
+            new JetPluginMetrics(Collections.singletonMap("context", "connector"));
+    private final JetPluginMetrics taskPluginMetrics =
+            new JetPluginMetrics(Collections.singletonMap("context", "source-task"));
     private Map<String, String> taskConfig;
     private SourceTask task;
     private State state = new State();
@@ -320,7 +325,15 @@ public abstract class CdcSourceP<T> extends AbstractProcessor {
 
     @Override
     public void close() {
-        killConnection();
+        try {
+            killConnection();
+        } finally {
+            try {
+                taskPluginMetrics.close();
+            } finally {
+                connectorPluginMetrics.close();
+            }
+        }
     }
 
     private void killConnection() {
@@ -343,6 +356,11 @@ public abstract class CdcSourceP<T> extends AbstractProcessor {
         @Override
         public OffsetStorageReader offsetStorageReader() {
             return new SourceOffsetStorageReader();
+        }
+
+        @Override
+        public PluginMetrics pluginMetrics() {
+            return taskPluginMetrics.pluginMetrics();
         }
     }
 
@@ -437,7 +455,7 @@ public abstract class CdcSourceP<T> extends AbstractProcessor {
         return timestamp == null ? NO_NATIVE_TIME : timestamp;
     }
 
-    private static class JetConnectorContext implements ConnectorContext {
+    private class JetConnectorContext implements ConnectorContext {
         @Override
         public void requestTaskReconfiguration() {
             // no-op since it is not supported
@@ -446,6 +464,11 @@ public abstract class CdcSourceP<T> extends AbstractProcessor {
         @Override
         public void raiseError(Exception e) {
             throw rethrow(e);
+        }
+
+        @Override
+        public PluginMetrics pluginMetrics() {
+            return connectorPluginMetrics.pluginMetrics();
         }
     }
 

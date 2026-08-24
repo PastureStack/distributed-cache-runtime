@@ -40,7 +40,6 @@ import java.util.Properties;
 
 import static com.hazelcast.config.LocalDeviceConfig.DEFAULT_DEVICE_NAME;
 import static com.hazelcast.instance.ProtocolType.WAN;
-import static java.io.File.createTempFile;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -224,7 +223,7 @@ public class ConfigTest extends HazelcastTestSupport {
 
     @Test
     public void testLoadFromFile() throws IOException {
-        File file = createTempFile("foo", "cfg.xml");
+        File file = java.nio.file.Files.createTempFile("foo", "cfg.xml").toFile();
         file.deleteOnExit();
 
         String randStr = randomString();

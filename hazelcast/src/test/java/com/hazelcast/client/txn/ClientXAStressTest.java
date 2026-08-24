@@ -53,7 +53,7 @@ public class ClientXAStressTest extends HazelcastTestSupport {
     private HazelcastXAResource instanceXaResource;
 
     private static Xid createXid() {
-        return new XID(randomString(), "test");
+        return new XID(randomString(), "test", "hazelcast");
     }
 
     @Before

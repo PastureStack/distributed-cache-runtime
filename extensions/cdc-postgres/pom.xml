@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.hazelcast.jet</groupId>
         <artifactId>hazelcast-jet-extensions</artifactId>
-        <version>5.7.3</version>
+        <version>5.7.3-pasturestack.2</version>
     </parent>
 
     <properties>
@@ -103,13 +103,13 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>toxiproxy</artifactId>
+            <artifactId>testcontainers-toxiproxy</artifactId>
             <scope>test</scope>
         </dependency>
 

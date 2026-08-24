@@ -19,6 +19,7 @@ package com.hazelcast.instance;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
 import com.hazelcast.test.annotation.QuickTest;
+import com.hazelcast.version.Version;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -71,6 +72,14 @@ public class BuildInfoProviderTest extends HazelcastTestSupport {
         assertTrue(buildInfo.toString(), VERSION_PATTERN.matcher(version).matches());
         assertEquals(buildInfo.toString(), buildNumber, Integer.parseInt(build));
         assertFalse(buildInfo.toString(), buildInfo.isEnterprise());
+    }
+
+    @Test
+    public void testRuntimeVersionRemainsClusterProtocolCompatible() {
+        String runtimeVersion = BuildInfoProvider.getBuildInfo().getVersion();
+
+        assertEquals("5.7.3", runtimeVersion);
+        assertEquals(Version.of(5, 7), Version.of(runtimeVersion));
     }
 
     @Test

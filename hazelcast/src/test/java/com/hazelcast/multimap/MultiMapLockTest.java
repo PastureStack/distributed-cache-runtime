@@ -103,13 +103,15 @@ public class MultiMapLockTest extends HazelcastTestSupport {
         final CountDownLatch latch = new CountDownLatch(1);
         final CountDownLatch latch2 = new CountDownLatch(1);
         new Thread(() -> {
-            instances[0].getMultiMap(name).lock("alo");
-            latch.countDown();
+            MultiMap<Object, Object> multiMap = instances[0].getMultiMap(name);
+            multiMap.lock("alo");
             try {
+                latch.countDown();
                 latch2.await(10, TimeUnit.SECONDS);
-                instances[0].getMultiMap(name).unlock("alo");
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
+            } finally {
+                multiMap.unlock("alo");
             }
         }).start();
         assertTrue(latch.await(10, TimeUnit.SECONDS));
@@ -126,7 +128,9 @@ public class MultiMapLockTest extends HazelcastTestSupport {
             instances[0].shutdown();
         }).start();
 
-        assertTrue(instances[1].getMultiMap(name).tryLock("alo", 20, TimeUnit.SECONDS));
+        MultiMap<Object, Object> multiMap = instances[1].getMultiMap(name);
+        assertTrue(multiMap.tryLock("alo", 20, TimeUnit.SECONDS));
+        multiMap.unlock("alo");
     }
 
     /**

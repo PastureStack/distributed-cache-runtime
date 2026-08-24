@@ -98,7 +98,7 @@ public class AzureDiscoveryStrategyFactoryTest {
 
     private static String createTestFile(String expectedContents)
             throws IOException {
-        File temp = File.createTempFile("test", ".tmp");
+        File temp = java.nio.file.Files.createTempFile("test", ".tmp").toFile();
         temp.deleteOnExit();
         Files.writeString(temp.toPath(), expectedContents, StandardCharsets.UTF_8);
         return temp.getAbsolutePath();

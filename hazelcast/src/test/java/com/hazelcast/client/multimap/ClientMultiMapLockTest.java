@@ -106,9 +106,13 @@ public class ClientMultiMapLockTest extends HazelcastTestSupport {
         final Object key = "key";
 
         mm.lock(key);
-        mm.lock(key);
-        mm.unlock(key);
-        assertTrue(mm.isLocked(key));
+        try {
+            mm.lock(key);
+            mm.unlock(key);
+            assertTrue(mm.isLocked(key));
+        } finally {
+            mm.unlock(key);
+        }
     }
 
     @Test(expected = IllegalMonitorStateException.class)

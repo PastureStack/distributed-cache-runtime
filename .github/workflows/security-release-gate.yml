@@ -32,8 +32,8 @@ jobs:
       - name: Install verified Temurin LTS JDK
         shell: bash
         env:
-          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4%2B7/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4_7.tar.gz
-          JDK_SHA256: e58fcdcd637b25c03ca84cbbcefc70d11efb8f4b4cbd05decc9f661769d77f94
+          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz
+          JDK_SHA256: dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/temurin-jdk.tar.gz"
@@ -188,10 +188,10 @@ jobs:
         run: |
           set -euo pipefail
           PASTURESTACK_OUTPUT_DIR=dist scripts/pasturestack-build-runtime
-          test -s dist/hazelcast-5.7.3.jar
-          sha256sum dist/hazelcast-5.7.3.jar | tee evidence/hazelcast-5.7.3.jar.sha256
-          jar tf dist/hazelcast-5.7.3.jar | grep -Fxq META-INF/LICENSE
-          jar tf dist/hazelcast-5.7.3.jar | grep -Fxq META-INF/NOTICE
+          test -s dist/hazelcast-5.7.3-pasturestack.2.jar
+          sha256sum dist/hazelcast-5.7.3-pasturestack.2.jar | tee evidence/hazelcast-5.7.3-pasturestack.2.jar.sha256
+          jar tf dist/hazelcast-5.7.3-pasturestack.2.jar | grep -Fxq META-INF/LICENSE
+          jar tf dist/hazelcast-5.7.3-pasturestack.2.jar | grep -Fxq META-INF/NOTICE
           native_resources=(
             hazelcast/src/main/resources/affinity_helper.c
             hazelcast/src/main/resources/affinity_helper.h
@@ -206,7 +206,7 @@ jobs:
           trap 'rm -rf "$extracted_native"' EXIT
           (
             cd "$extracted_native"
-            jar xf "$GITHUB_WORKSPACE/dist/hazelcast-5.7.3.jar" \
+            jar xf "$GITHUB_WORKSPACE/dist/hazelcast-5.7.3-pasturestack.2.jar" \
               lib/linux-x86/libicmp_helper.so \
               lib/linux-x86_64/libaffinity_helper.so \
               lib/linux-x86_64/libicmp_helper.so
@@ -217,7 +217,7 @@ jobs:
             "$extracted_native/lib/linux-x86_64/libaffinity_helper.so"
           cmp hazelcast-tpc-engine/src/main/resources/lib/linux-x86_64/libicmp_helper.so \
             "$extracted_native/lib/linux-x86_64/libicmp_helper.so"
-          if jar tf dist/hazelcast-5.7.3.jar | grep -Eq '(^|/)(jet_to_python[^/]*|[^/]+\.py)$'; then
+          if jar tf dist/hazelcast-5.7.3-pasturestack.2.jar | grep -Eq '(^|/)(jet_to_python[^/]*|[^/]+\.py)$'; then
             echo 'The core runtime artifact unexpectedly contains Python extension resources.' >&2
             exit 1
           fi
@@ -295,9 +295,9 @@ jobs:
             -Dfile=pom.xml -DpomFile=pom.xml
           ./mvnw -B org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
             -Dfile=hazelcast-parent/pom.xml -DpomFile=hazelcast-parent/pom.xml
-          test -s hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.3.jar
+          test -s hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.3-pasturestack.2.jar
           ./mvnw -B org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
-            -Dfile=hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.3.jar \
+            -Dfile=hazelcast-tpc-engine/target/hazelcast-tpc-engine-5.7.3-pasturestack.2.jar \
             -DpomFile=hazelcast-tpc-engine/pom.xml
           timeout --signal=TERM --kill-after=30s 15m ./mvnw -B \
             org.apache.maven.plugins:maven-help-plugin:3.5.2:effective-pom \
@@ -316,7 +316,7 @@ jobs:
             -DoutputFormat=json \
             -DoutputReactorProjects=false \
             -DoutputDirectory="$PWD/evidence" \
-            -DoutputName=hazelcast-5.7.3.cdx \
+            -DoutputName=hazelcast-5.7.3-pasturestack.2.cdx \
             -DschemaVersion=1.6 \
             org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeBom
           printf '%s  %s\n%s  %s\n' \
@@ -366,18 +366,18 @@ jobs:
             "$TRIVY_IMAGE" rootfs --pkg-types library \
             --cache-dir /root/.cache/trivy --skip-db-update --offline-scan \
             --scanners vuln --severity CRITICAL,HIGH --format json \
-            --output /evidence/hazelcast-5.7.3.trivy.json /artifact/hazelcast-5.7.3.jar
+            --output /evidence/hazelcast-5.7.3-pasturestack.2.trivy.json /artifact/hazelcast-5.7.3-pasturestack.2.jar
           docker run --rm --network none \
             -v "$PWD/evidence:/evidence" \
             -v "$trivy_cache:/root/.cache/trivy" \
             "$TRIVY_IMAGE" sbom \
             --cache-dir /root/.cache/trivy --skip-db-update --skip-java-db-update --offline-scan \
             --scanners vuln --severity CRITICAL,HIGH --format json \
-            --output /evidence/hazelcast-5.7.3.sbom.trivy.json \
-            /evidence/hazelcast-5.7.3.cdx.json
+            --output /evidence/hazelcast-5.7.3-pasturestack.2.sbom.trivy.json \
+            /evidence/hazelcast-5.7.3-pasturestack.2.cdx.json
           sha256sum evidence/maven-effective-pom.xml \
-            evidence/maven-runtime-dependency-tree.json evidence/hazelcast-5.7.3.cdx.json \
-            evidence/hazelcast-5.7.3.sbom.trivy.json evidence/hazelcast-5.7.3.trivy.json \
+            evidence/maven-runtime-dependency-tree.json evidence/hazelcast-5.7.3-pasturestack.2.cdx.json \
+            evidence/hazelcast-5.7.3-pasturestack.2.sbom.trivy.json evidence/hazelcast-5.7.3-pasturestack.2.trivy.json \
             evidence/evidence-tools.sha256 \
             evidence/native-resources.sha256 evidence/runtime-toolchain-boundary.txt \
             > evidence/security-evidence.sha256
@@ -388,7 +388,7 @@ jobs:
           set -euo pipefail
           python scripts/pasturestack-verify-maven-evidence.py \
             --effective-pom evidence/maven-effective-pom.xml \
-            --sbom evidence/hazelcast-5.7.3.cdx.json \
+            --sbom evidence/hazelcast-5.7.3-pasturestack.2.cdx.json \
             --dependency-tree evidence/maven-runtime-dependency-tree.json \
             --summary evidence/maven-evidence-summary.txt
           sha256sum evidence/maven-evidence-summary.txt >> evidence/security-evidence.sha256
@@ -401,9 +401,9 @@ jobs:
                   return json.load(stream)
 
           source = load('evidence/source-security.json')
-          artifact = load('evidence/hazelcast-5.7.3.trivy.json')
-          dependency_scan = load('evidence/hazelcast-5.7.3.sbom.trivy.json')
-          sbom = load('evidence/hazelcast-5.7.3.cdx.json')
+          artifact = load('evidence/hazelcast-5.7.3-pasturestack.2.trivy.json')
+          dependency_scan = load('evidence/hazelcast-5.7.3-pasturestack.2.sbom.trivy.json')
+          sbom = load('evidence/hazelcast-5.7.3-pasturestack.2.cdx.json')
           maven_tree = load('evidence/maven-runtime-dependency-tree.json')
           source_vulnerabilities = [
               item
@@ -489,7 +489,7 @@ jobs:
               or None in component_purls
               or len(component_refs) != len(set(component_refs))
               or len(component_purls) != len(set(component_purls))
-              or maven_root != ('com.hazelcast', 'hazelcast', '5.7.3')
+              or maven_root != ('com.hazelcast', 'hazelcast', '5.7.3-pasturestack.2')
               or sbom_root != maven_root
               or root_ref not in dependency_refs
               or dependency_refs != allowed_refs
@@ -507,7 +507,7 @@ jobs:
           docker run --rm --network none \
             -v "$PWD/evidence:/evidence:ro" \
             cyclonedx/cyclonedx-cli:0.33.1@sha256:252c2e26f468c25fea1e63ecde1bc3198ad6e9dbb57f5ed3236bddcb2281b3a7 \
-            validate --input-file /evidence/hazelcast-5.7.3.cdx.json \
+            validate --input-file /evidence/hazelcast-5.7.3-pasturestack.2.cdx.json \
             --input-format json --input-version v1_6 --fail-on-errors
 
       - name: Upload review evidence

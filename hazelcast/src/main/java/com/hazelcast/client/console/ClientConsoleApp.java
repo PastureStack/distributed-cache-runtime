@@ -965,8 +965,8 @@ public class ClientConsoleApp implements EntryListener, ItemListener, MessageLis
         }
     }
 
-    // squid:S2222 suppression avoids sonar analysis bug regarding already known lock release issue
-    @SuppressWarnings({"LockAcquiredButNotSafelyReleased", "squid:S2222"})
+    // The console intentionally lets one command acquire a distributed lock and a later command release it.
+    @SuppressWarnings({"LockAcquiredButNotSafelyReleased", "squid:S2222", "java/unreleased-lock"})
     protected void handleLock(String[] args) {
         String lockStr = args[0];
         String name = args[1];

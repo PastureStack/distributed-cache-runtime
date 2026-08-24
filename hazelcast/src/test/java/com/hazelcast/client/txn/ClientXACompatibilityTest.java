@@ -75,7 +75,7 @@ public class ClientXACompatibilityTest extends HazelcastTestSupport {
     }
 
     private static Xid createXid() {
-        return new XID(randomString(), "test");
+        return new XID(randomString(), "test", "hazelcast");
     }
 
     @Before

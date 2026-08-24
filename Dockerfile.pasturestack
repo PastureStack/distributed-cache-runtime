@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
+ARG VCS_REF
 FROM eclipse-temurin:25.0.4_7-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3 AS build
 
+ARG VCS_REF
 ENV MAVEN_OPTS="-Xms256m -Xmx1200m -XX:+UseSerialGC"
+ENV PASTURESTACK_VCS_REF="$VCS_REF"
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends unzip \
@@ -16,12 +19,12 @@ FROM scratch
 
 ARG VCS_REF
 LABEL org.opencontainers.image.title="PastureStack Distributed Cache Runtime" \
-      org.opencontainers.image.description="PastureStack 5.7.3 runtime based on Hazelcast 5.7.0 with reviewed security updates" \
+      org.opencontainers.image.description="PastureStack artifact 5.7.3-pasturestack.2 with Hazelcast cluster runtime 5.7.3 and reviewed security updates" \
       org.opencontainers.image.source="https://github.com/PastureStack/distributed-cache-runtime" \
       org.opencontainers.image.revision="$VCS_REF" \
       org.opencontainers.image.licenses="Apache-2.0 OR LicenseRef-Hazelcast-Community" \
       org.opencontainers.image.vendor="PastureStack"
 
-COPY --from=build /src/dist/hazelcast-5.7.3.jar /opt/pasturestack/vendor/hazelcast-5.7.3.jar
-COPY --from=build /src/dist/hazelcast-5.7.3.jar.sha256 /opt/pasturestack/vendor/hazelcast-5.7.3.jar.sha256
+COPY --from=build /src/dist/hazelcast-5.7.3-pasturestack.2.jar /opt/pasturestack/vendor/hazelcast-5.7.3-pasturestack.2.jar
+COPY --from=build /src/dist/hazelcast-5.7.3-pasturestack.2.jar.sha256 /opt/pasturestack/vendor/hazelcast-5.7.3-pasturestack.2.jar.sha256
 COPY LICENSE NOTICE ORIGIN.md SECURITY-MAINTENANCE.md /opt/pasturestack/licenses/

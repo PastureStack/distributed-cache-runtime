@@ -95,7 +95,7 @@ public class YamlClientConfigBuilderTest extends AbstractClientConfigBuilderTest
     @Override
     @Test(expected = HazelcastException.class)
     public void loadingThroughSystemProperty_nonExistingFile() throws IOException {
-        File file = File.createTempFile("foo", ".yaml");
+        File file = java.nio.file.Files.createTempFile("foo", ".yaml").toFile();
         delete(file);
         System.setProperty("hazelcast.client.config", file.getAbsolutePath());
 
@@ -108,7 +108,7 @@ public class YamlClientConfigBuilderTest extends AbstractClientConfigBuilderTest
         String yaml = "hazelcast-client:\n"
                 + "  cluster-name: foobar";
 
-        File file = File.createTempFile("foo", ".yaml");
+        File file = java.nio.file.Files.createTempFile("foo", ".yaml").toFile();
         file.deleteOnExit();
         PrintWriter writer = new PrintWriter(file, StandardCharsets.UTF_8);
         writer.println(yaml);

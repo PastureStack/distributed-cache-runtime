@@ -25,7 +25,7 @@
     <parent>
         <groupId>com.hazelcast</groupId>
         <artifactId>hazelcast-root</artifactId>
-        <version>5.7.3</version>
+        <version>5.7.3-pasturestack.2</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -33,7 +33,7 @@
         <!-- needed for CheckStyle -->
         <main.basedir>${project.parent.basedir}</main.basedir>
 
-        <bndlib.version>1.50.0</bndlib.version>
+        <bndlib.version>7.4.0</bndlib.version>
         <!--
         There is no Javadoc to publish, so we (ab)use `maven-jar-plugin` to generate a dummy artifact with `javadoc` classifier
         Hence we do not need to execute `maven-javadoc-plugin`, even if executed in other reactor modules
@@ -120,9 +120,15 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>biz.aQute</groupId>
-            <artifactId>bndlib</artifactId>
+            <groupId>biz.aQute.bnd</groupId>
+            <artifactId>biz.aQute.bndlib</artifactId>
             <version>${bndlib.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>

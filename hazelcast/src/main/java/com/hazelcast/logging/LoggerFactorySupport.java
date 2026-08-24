@@ -84,4 +84,8 @@ public abstract class LoggerFactorySupport implements LoggerFactory, InternalLog
         }
     }
 
+    static String sanitizeLogMessage(String message) {
+        return message == null ? null : message.replace("\r", "\\r").replace("\n", "\\n");
+    }
+
 }

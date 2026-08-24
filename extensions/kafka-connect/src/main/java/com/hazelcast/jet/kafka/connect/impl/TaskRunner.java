@@ -38,6 +38,7 @@ public class TaskRunner {
     private volatile boolean running;
     private volatile boolean reconfigurationNeeded;
     private SourceTask task;
+    private JetSourceTaskContext taskContext;
     private volatile Map<String, String> taskConfigReference;
 
     TaskRunner(String name, State state, SourceTaskFactory sourceTaskFactory) {
@@ -66,6 +67,11 @@ public class TaskRunner {
             }
         } finally {
             running = false;
+            task = null;
+            if (taskContext != null) {
+                taskContext.close();
+                taskContext = null;
+            }
             taskLifecycleLock.unlock();
         }
     }
@@ -112,12 +118,19 @@ public class TaskRunner {
                 Map<String, String> taskConfig = taskConfigReference;
                 if (taskConfig != null) {
                     SourceTask taskLocal = sourceTaskFactory.create();
+                    JetSourceTaskContext context = new JetSourceTaskContext(taskConfig, state, name);
                     logger.info("Initializing task '" + name + "'");
-                    taskLocal.initialize(new JetSourceTaskContext(taskConfig, state));
-                    logger.info("Starting task '" + name + "'");
-                    taskLocal.start(taskConfig);
-                    this.task = taskLocal;
-                    running = true;
+                    try {
+                        taskLocal.initialize(context);
+                        logger.info("Starting task '" + name + "'");
+                        taskLocal.start(taskConfig);
+                        this.task = taskLocal;
+                        this.taskContext = context;
+                        running = true;
+                    } catch (RuntimeException | Error e) {
+                        context.close();
+                        throw e;
+                    }
                 } else {
                     logger.info("No task config for task '" + name + "'");
                 }

@@ -16,6 +16,7 @@
 
 package com.hazelcast.jet.kafka.connect.impl;
 
+import org.apache.kafka.common.metrics.PluginMetrics;
 import org.apache.kafka.connect.source.SourceTaskContext;
 import org.apache.kafka.connect.storage.OffsetStorageReader;
 
@@ -25,14 +26,17 @@ import java.util.Map;
  * SourceTaskContext is provided to SourceTasks to allow them to interact with the underlying
  * runtime.
  */
-class JetSourceTaskContext implements SourceTaskContext {
+class JetSourceTaskContext implements SourceTaskContext, AutoCloseable {
     private final Map<String, String> taskConfig;
     private final State state;
+    private final JetPluginMetrics pluginMetrics;
 
     JetSourceTaskContext(Map<String, String> taskConfig,
-                         State state) {
+                         State state,
+                         String taskName) {
         this.taskConfig = taskConfig;
         this.state = state;
+        this.pluginMetrics = new JetPluginMetrics(Map.of("task", taskName));
     }
 
     @Override
@@ -43,5 +47,15 @@ class JetSourceTaskContext implements SourceTaskContext {
     @Override
     public OffsetStorageReader offsetStorageReader() {
         return new JetSourceOffsetStorageReader(state);
+    }
+
+    @Override
+    public PluginMetrics pluginMetrics() {
+        return pluginMetrics.pluginMetrics();
+    }
+
+    @Override
+    public void close() {
+        pluginMetrics.close();
     }
 }

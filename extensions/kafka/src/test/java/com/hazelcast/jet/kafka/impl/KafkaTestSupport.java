@@ -66,6 +66,7 @@ import static org.apache.kafka.test.TestUtils.waitForCondition;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 public abstract class KafkaTestSupport {
     static final long KAFKA_MAX_BLOCK_MS = MINUTES.toMillis(2);
@@ -78,23 +79,11 @@ public abstract class KafkaTestSupport {
     private SchemaRegistryClient schemaRegistry;
 
     public static KafkaTestSupport create() {
-        if (!dockerEnabled()) {
-            assertPropertyNotSet("test.kafka.version");
-            assertPropertyNotSet("test.redpanda.version");
-            assertPropertyNotSet("test.kafka.use.redpanda");
-            return new EmbeddedKafkaTestSupport();
+        assumeTrue("Kafka 4.x integration tests require Docker or Podman", dockerEnabled());
+        if (System.getProperties().containsKey("test.kafka.use.redpanda")) {
+            return new DockerizedRedPandaTestSupport();
         } else {
-            if (System.getProperties().containsKey("test.kafka.use.redpanda")) {
-                return new DockerizedRedPandaTestSupport();
-            } else {
-                return new DockerizedKafkaTestSupport();
-            }
-        }
-    }
-
-    private static void assertPropertyNotSet(String key) {
-        if (System.getProperties().containsKey(key)) {
-            throw new IllegalArgumentException("'" + key + "' system property requires docker enabled");
+            return new DockerizedKafkaTestSupport();
         }
     }
 

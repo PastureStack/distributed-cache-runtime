@@ -25,6 +25,8 @@ import org.apache.logging.log4j.spi.ExtendedLogger;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
+import static com.hazelcast.logging.LoggerFactorySupport.sanitizeLogMessage;
+
 /**
  * Logging to Log4j 2.x.
  */
@@ -67,12 +69,12 @@ public class Log4j2Factory extends LoggerFactorySupport {
 
         @Override
         public void log(Level level, String message) {
-            logger.logIfEnabled(FQCN, toLog4j2Level(level), null, message);
+            logger.logIfEnabled(FQCN, toLog4j2Level(level), null, sanitizeLogMessage(message));
         }
 
         @Override
         public void log(Level level, String message, Throwable thrown) {
-            logger.logIfEnabled(FQCN, toLog4j2Level(level), null, message, thrown);
+            logger.logIfEnabled(FQCN, toLog4j2Level(level), null, sanitizeLogMessage(message), thrown);
         }
 
         @Override

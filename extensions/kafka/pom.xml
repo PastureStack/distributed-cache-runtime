@@ -29,7 +29,7 @@
     <parent>
         <groupId>com.hazelcast.jet</groupId>
         <artifactId>hazelcast-jet-extensions</artifactId>
-        <version>5.7.3</version>
+        <version>5.7.3-pasturestack.2</version>
     </parent>
 
     <properties>
@@ -84,23 +84,6 @@
         <!-- TEST -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka_${scala.version}</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.yetus</groupId>
-                    <artifactId>audience-annotations</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka_${scala.version}</artifactId>
-            <classifier>test</classifier>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
             <classifier>test</classifier>
             <scope>test</scope>
@@ -112,12 +95,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>kafka</artifactId>
+            <artifactId>testcontainers-kafka</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>redpanda</artifactId>
+            <artifactId>testcontainers-redpanda</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

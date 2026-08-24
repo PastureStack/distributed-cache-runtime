@@ -31,7 +31,7 @@ import static java.util.stream.Collectors.reducing;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 class DockerizedRedPandaTestSupport extends KafkaTestSupport {
-    private static final String TEST_REDPANDA_VERSION = System.getProperty("test.redpanda.version", "v22.3.20");
+    private static final String TEST_REDPANDA_VERSION = System.getProperty("test.redpanda.version", "v26.2.2");
     private static final Logger LOGGER = LoggerFactory.getLogger(DockerizedRedPandaTestSupport.class);
 
     private RedpandaContainer redpandaContainer;

@@ -62,8 +62,11 @@ public class MapStoreWriteThroughTest extends AbstractMapStoreTest {
         IMap<String, String> map = instance.getMap("default");
         assertEquals(0, map.size());
         assertTrue(map.tryLock("1", 1, TimeUnit.SECONDS));
-        assertEquals("value1", map.get("1"));
-        map.unlock("1");
+        try {
+            assertEquals("value1", map.get("1"));
+        } finally {
+            map.unlock("1");
+        }
         assertEquals("value1", map.put("1", "value2"));
         assertEquals("value2", map.get("1"));
         assertEquals("value2", testMapStore.getStore().get("1"));

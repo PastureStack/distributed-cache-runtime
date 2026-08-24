@@ -92,7 +92,6 @@ import static com.hazelcast.config.RestEndpointGroup.CLUSTER_READ;
 import static com.hazelcast.config.RestEndpointGroup.HEALTH_CHECK;
 import static com.hazelcast.config.WanQueueFullBehavior.THROW_EXCEPTION;
 import static com.hazelcast.internal.util.StringUtil.lowerCaseInternal;
-import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -162,7 +161,7 @@ public class XMLConfigBuilderTest extends AbstractConfigBuilderTest {
     @Override
     @Test
     public void testConfigurationWithFileName() throws Exception {
-        File file = createTempFile("foo", "bar");
+        File file = java.nio.file.Files.createTempFile("foo", "bar").toFile();
         file.deleteOnExit();
 
         String xml = HAZELCAST_START_TAG

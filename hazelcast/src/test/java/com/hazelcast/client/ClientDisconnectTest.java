@@ -115,41 +115,46 @@ public class ClientDisconnectTest extends HazelcastTestSupport {
         final IMap<Object, Object> map = hazelcastInstance.getMap(name);
         final String key = "key";
         map.lock(key);
+        try {
+            final HazelcastInstance clientInstance = hazelcastFactory.newHazelcastClient();
+            final CountDownLatch clientDisconnectedFromNode = new CountDownLatch(1);
+            final UUID uuid = clientInstance.getLocalEndpoint().getUuid();
+            hazelcastInstance.getClientService().addClientListener(new ClientListener() {
+                @Override
+                public void clientConnected(Client client) {
 
-        final HazelcastInstance clientInstance = hazelcastFactory.newHazelcastClient();
-        final CountDownLatch clientDisconnectedFromNode = new CountDownLatch(1);
-        final UUID uuid = clientInstance.getLocalEndpoint().getUuid();
-        hazelcastInstance.getClientService().addClientListener(new ClientListener() {
-            @Override
-            public void clientConnected(Client client) {
-
-            }
-
-            @Override
-            public void clientDisconnected(Client client) {
-                if (client.getUuid().equals(uuid)) {
-                    clientDisconnectedFromNode.countDown();
                 }
+
+                @Override
+                public void clientDisconnected(Client client) {
+                    if (client.getUuid().equals(uuid)) {
+                        clientDisconnectedFromNode.countDown();
+                    }
+                }
+            });
+            new Thread(() -> {
+                IMap<Object, Object> clientMap = clientInstance.getMap(name);
+                try {
+                    clientMap.lock(key);
+                } catch (Exception e) {
+                    ignore(e);
+                }
+
+            }).start();
+
+            SECONDS.sleep(2);
+
+            clientInstance.shutdown();
+            assertOpenEventually(clientDisconnectedFromNode);
+
+            map.unlock(key);
+            //dead client should not be able to acquire the lock.
+            assertTrueAllTheTime(() -> assertFalse(map.isLocked(key)), 3);
+        } finally {
+            if (map.isLocked(key)) {
+                map.forceUnlock(key);
             }
-        });
-        new Thread(() -> {
-            IMap<Object, Object> clientMap = clientInstance.getMap(name);
-            try {
-                clientMap.lock(key);
-            } catch (Exception e) {
-                ignore(e);
-            }
-
-        }).start();
-
-        SECONDS.sleep(2);
-
-        clientInstance.shutdown();
-        assertOpenEventually(clientDisconnectedFromNode);
-
-        map.unlock(key);
-        //dead client should not be able to acquire the lock.
-        assertTrueAllTheTime(() -> assertFalse(map.isLocked(key)), 3);
+        }
     }
 
     @Test

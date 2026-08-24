@@ -93,7 +93,6 @@ import static com.hazelcast.config.PersistentMemoryMode.SYSTEM_MEMORY;
 import static com.hazelcast.config.WanQueueFullBehavior.DISCARD_AFTER_MUTATION;
 import static com.hazelcast.config.WanQueueFullBehavior.THROW_EXCEPTION;
 import static com.hazelcast.internal.util.StringUtil.lowerCaseInternal;
-import static java.io.File.createTempFile;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -153,7 +152,7 @@ public class YamlConfigBuilderTest extends AbstractConfigBuilderTest {
     @Test
     public void testConfigurationWithFileName()
             throws Exception {
-        File file = createTempFile("foo", "bar");
+        File file = java.nio.file.Files.createTempFile("foo", "bar").toFile();
         file.deleteOnExit();
 
         String yaml = """

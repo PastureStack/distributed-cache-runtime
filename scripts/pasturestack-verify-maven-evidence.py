@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ElementTree
 
 
 MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
-EXPECTED_RUNTIME = ("com.hazelcast", "hazelcast", "5.7.3")
+EXPECTED_RUNTIME = ("com.hazelcast", "hazelcast", "5.7.3-pasturestack.2")
 
 
 def required_text(element, name):

@@ -771,19 +771,28 @@ public class BasicMapTest extends HazelcastTestSupport {
         final IMap<Object, Object> map = getInstance().getMap("testMapTryLock");
         final String key = "key";
         map.lock(key);
+        try {
+            final CountDownLatch latch = new CountDownLatch(1);
+            Future<Object> f = spawn(() -> {
+                assertFalse("Should NOT be able to acquire lock!", map.tryLock(key));
+                latch.countDown();
 
-        final CountDownLatch latch = new CountDownLatch(1);
-        Future<Object> f = spawn(() -> {
-            assertFalse("Should NOT be able to acquire lock!", map.tryLock(key));
-            latch.countDown();
+                assertTrue("Should be able to acquire lock!", map.tryLock(key, 60, SECONDS));
+                try {
+                    return null;
+                } finally {
+                    map.unlock(key);
+                }
+            });
 
-            assertTrue("Should be able to acquire lock!", map.tryLock(key, 60, SECONDS));
-            return null;
-        });
-
-        assertOpenEventually(latch);
-        map.unlock(key);
-        f.get();
+            assertOpenEventually(latch);
+            map.unlock(key);
+            f.get();
+        } finally {
+            if (map.isLocked(key)) {
+                map.forceUnlock(key);
+            }
+        }
     }
 
     @Test
@@ -793,20 +802,23 @@ public class BasicMapTest extends HazelcastTestSupport {
         final String invalidValue = "valuex";
         final String value = "value";
         map.lock(key);
-
-        Future<?> f1 = spawn((Runnable) () -> assertFalse(map.tryPut(key, invalidValue, 1, SECONDS)));
-
-        Future<?> f2 = spawn((Runnable) () -> map.put(key, value));
-
-        f1.get();
         try {
-            f2.get(1, SECONDS);
-            fail("Should not be able to put entry when key is locked!");
-        } catch (TimeoutException ignored) {
-        }
-        map.unlock(key);
+            Future<?> f1 = spawn((Runnable) () -> assertFalse(map.tryPut(key, invalidValue, 1, SECONDS)));
+            Future<?> f2 = spawn((Runnable) () -> map.put(key, value));
 
-        f2.get();
+            f1.get();
+            try {
+                f2.get(1, SECONDS);
+                fail("Should not be able to put entry when key is locked!");
+            } catch (TimeoutException ignored) {
+            }
+            map.unlock(key);
+            f2.get();
+        } finally {
+            if (map.isLocked(key)) {
+                map.forceUnlock(key);
+            }
+        }
         assertEquals(value, map.get(key));
     }
 
@@ -1905,7 +1917,7 @@ public class BasicMapTest extends HazelcastTestSupport {
         final IMap<String, Integer> sourceMap = getSourceMapFor_ForEach_Test();
 
         //Create a bi-consumer which writes both args to a file
-        File tempFile = File.createTempFile("Map", ".txt");
+        File tempFile = java.nio.file.Files.createTempFile("Map", ".txt").toFile();
         tempFile.deleteOnExit();
         StaticSerializableBiConsumer action = new StaticSerializableBiConsumer(tempFile.getAbsolutePath());
 
@@ -1953,4 +1965,3 @@ public class BasicMapTest extends HazelcastTestSupport {
     }
 
 }
-

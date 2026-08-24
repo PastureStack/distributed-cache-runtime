@@ -86,8 +86,11 @@ public class OperationParkerImplTest extends HazelcastTestSupport {
                 try {
                     String key = "key" + i;
                     map.lock(key);
-                    LockSupport.parkNanos(1);
-                    map.unlock(key);
+                    try {
+                        LockSupport.parkNanos(1);
+                    } finally {
+                        map.unlock(key);
+                    }
                 } catch (HazelcastInstanceNotActiveException ignored) {
                 }
             }

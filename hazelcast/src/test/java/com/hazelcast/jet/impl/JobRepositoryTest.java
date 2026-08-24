@@ -169,7 +169,7 @@ public class JobRepositoryTest extends JetTestSupport {
 
     @Test
     public void when_jobSecondFileUploadFails_then_jobResourcesCleanedUp() throws Exception {
-        File goodFile = File.createTempFile("job", "resource");
+        File goodFile = java.nio.file.Files.createTempFile("job", "resource").toFile();
         try {
             jobConfig.attachFile(goodFile);
             jobConfig.attachFile(URI.create("http://site/nonexistent").toURL());

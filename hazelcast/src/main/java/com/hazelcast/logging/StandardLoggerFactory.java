@@ -22,6 +22,8 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+import static com.hazelcast.logging.LoggerFactorySupport.sanitizeLogMessage;
+
 public class StandardLoggerFactory extends LoggerFactorySupport implements LoggerFactory {
 
     @Override
@@ -49,7 +51,7 @@ public class StandardLoggerFactory extends LoggerFactorySupport implements Logge
 
         @Override
         public void log(Level level, String message, Throwable thrown) {
-            LogRecord logRecord = new LogRecord(level, message);
+            LogRecord logRecord = new LogRecord(level, sanitizeLogMessage(message));
             logRecord.setLoggerName(logger.getName());
             logRecord.setThrown(thrown);
             logRecord.setSourceClassName(logger.getName());
@@ -58,7 +60,8 @@ public class StandardLoggerFactory extends LoggerFactorySupport implements Logge
 
         @Override
         public void log(LogEvent logEvent) {
-            logger.log(logEvent.getLogRecord());
+            LogRecord logRecord = logEvent.getLogRecord();
+            log(logRecord.getLevel(), logRecord.getMessage(), logRecord.getThrown());
         }
 
         @Override

@@ -32,7 +32,7 @@
     <parent>
         <groupId>com.hazelcast.jet</groupId>
         <artifactId>hazelcast-jet-extensions</artifactId>
-        <version>5.7.3</version>
+        <version>5.7.3-pasturestack.2</version>
     </parent>
 
     <properties>
@@ -80,7 +80,7 @@
         <!--Postgres-->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -91,7 +91,7 @@
         <!--MySQL-->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mysql</artifactId>
+            <artifactId>testcontainers-mysql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -102,7 +102,7 @@
         <!--MSSQL-->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mssqlserver</artifactId>
+            <artifactId>testcontainers-mssqlserver</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -113,12 +113,12 @@
         <!--Oracle-->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-xe</artifactId>
+            <artifactId>testcontainers-oracle-xe</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-free</artifactId>
+            <artifactId>testcontainers-oracle-free</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -129,13 +129,13 @@
         <!--MariaDB-->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mariadb</artifactId>
+            <artifactId>testcontainers-mariadb</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>3.5.7</version>
+            <version>3.5.10</version>
             <scope>test</scope>
         </dependency>
 
@@ -148,7 +148,7 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mongodb</artifactId>
+            <artifactId>testcontainers-mongodb</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

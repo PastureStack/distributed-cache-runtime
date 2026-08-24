@@ -69,7 +69,7 @@ public class ProcessorClassLoaderCleanupTest extends JetTestSupport {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        jarFile = File.createTempFile("resources_", ".jar");
+        jarFile = java.nio.file.Files.createTempFile("resources_", ".jar").toFile();
         JarUtil.createResourcesJarFile(jarFile);
     }
 
