@@ -41,7 +41,6 @@
     </properties>
 
     <modules>
-        <module>hazelcast-spring-boot3</module>
         <module>hazelcast-spring-boot4</module>
     </modules>
 

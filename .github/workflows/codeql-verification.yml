@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Check out candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -46,7 +46,7 @@ jobs:
           "$java_home/bin/java" -version
 
       - name: Install pinned evidence verifier runtime
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14.7'
           check-latest: false
@@ -57,15 +57,15 @@ jobs:
         run: |
           set -euo pipefail
           test -z "$(git status --porcelain)"
-          test "$(git rev-parse 60c31e3750cbad64f5720e2e02f0a9830973193c^{commit})" = \
-            60c31e3750cbad64f5720e2e02f0a9830973193c
-          git merge-base --is-ancestor 60c31e3750cbad64f5720e2e02f0a9830973193c HEAD
-          grep -Fxq 'distributionSha256Sum=55fadd669532a3205d5db95f490bf13971d8b0843526f407f29db0e61f074ab3' \
+          test "$(git rev-parse 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c^{commit})" = \
+            520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c
+          git merge-base --is-ancestor 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c HEAD
+          grep -Fxq 'distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce' \
             .mvn/wrapper/maven-wrapper.properties
           test "$(python --version)" = 'Python 3.14.7'
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           languages: java-kotlin
           build-mode: manual
@@ -90,7 +90,7 @@ jobs:
             test-compile
 
       - name: Analyze without publishing temporary alerts
-        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           category: '/language:java-kotlin'
           upload: never
@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload verification evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: distributed-cache-codeql-${{ github.sha }}
           path: codeql-results/

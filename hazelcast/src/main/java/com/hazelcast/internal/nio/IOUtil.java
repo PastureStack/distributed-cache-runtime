@@ -900,10 +900,8 @@ public final class IOUtil {
     }
 
     public static boolean supportsKeepAliveOptions(NetworkChannel channel) {
-        // According to https://bugs.openjdk.org/browse/JDK-8194298 per-socket keep alive options
-        // are supported for linux & macos in OpenJDK-based Java distributions since JDK 8u272 or JDK >= 11.
-        // See: ExtendedOptionsImpl.c in
-        // https://github.com/AdoptOpenJDK/openjdk-jdk8u/commit/13a9d5b0c222b92812f0bc69ac96c8b7755a63a9
+        // JDK 25 exposes the extended keep-alive constants, but individual channel providers can
+        // still omit them. Keep the runtime capability check instead of assuming OS support.
         if (JDK_NET_TCP_KEEPCOUNT == null
             || JDK_NET_TCP_KEEPIDLE == null
             || JDK_NET_TCP_KEEPINTERVAL == null) {

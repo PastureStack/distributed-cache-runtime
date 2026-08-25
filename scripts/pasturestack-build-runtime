@@ -13,7 +13,10 @@ if find . -name pom.xml -type f -exec grep -l '<version>5.7.0</version>' {} + | 
     echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.3-pasturestack.2' >&2
     exit 1
 fi
-grep -Fq '<spring.boot3.version>3.5.16</spring.boot3.version>' hazelcast-parent/pom.xml
+grep -Fq '<spring.boot.version>4.1.1</spring.boot.version>' hazelcast-parent/pom.xml
+grep -Fq 'distributionUrl=https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip' .mvn/wrapper/maven-wrapper.properties
+grep -Fq 'distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce' .mvn/wrapper/maven-wrapper.properties
+grep -Fq 'distributionSha256SumTarGz=80ffca22aed9e8b9713a232f3394fd81d7f20322df75efdb2b047dbd3e3a23bb' .mvn/wrapper/maven-wrapper.properties
 grep -Fq '<jdk.version>25</jdk.version>' hazelcast-parent/pom.xml
 grep -Fq '<hazelcast.runtime.version>5.7.3</hazelcast.runtime.version>' hazelcast-parent/pom.xml
 grep -Fq 'VERSION = "${hazelcast.runtime.version}"' hazelcast/src/main/template/com/hazelcast/instance/GeneratedBuildProperties.java
@@ -49,9 +52,7 @@ grep -Fq '<python.protobuf.version>7.${protobuf.version}</python.protobuf.versio
 grep -Fq '<protobuf.version>36.0</protobuf.version>' hazelcast-parent/pom.xml
 grep -Fq '<netty.version>4.2.17.Final</netty.version>' hazelcast-parent/pom.xml
 grep -A2 -F '<artifactId>lettuce-core</artifactId>' extensions/kafka-connect/pom.xml | grep -Fq '<version>7.7.0.RELEASE</version>'
-grep -Fq '<org.springframework6.version>6.2.19</org.springframework6.version>' hazelcast-parent/pom.xml
-grep -Fq '<spring.boot4.version>4.1.1</spring.boot4.version>' hazelcast-parent/pom.xml
-grep -Fq '<org.springframework7.version>7.0.9</org.springframework7.version>' hazelcast-parent/pom.xml
+grep -Fq '<org.springframework.version>7.0.9</org.springframework.version>' hazelcast-parent/pom.xml
 grep -Fq '<mina.version>2.2.9</mina.version>' hazelcast-parent/pom.xml
 grep -Fq '<kafka.version>4.3.1</kafka.version>' hazelcast-parent/pom.xml
 grep -Fq '<postgresql.version>42.7.13</postgresql.version>' hazelcast-parent/pom.xml
@@ -79,8 +80,10 @@ grep -A2 -F '<artifactId>amqp-client</artifactId>' hazelcast-parent/pom.xml | gr
 grep -A2 -F '<artifactId>plexus-utils</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>4.1.0</version>'
 grep -A2 -F '<artifactId>logback-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.6.3</version>'
 grep -A2 -F '<artifactId>vertx-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.1.6</version>'
-if grep -Fq '<id>spring-5</id>' hazelcast-parent/pom.xml hazelcast-spring-tests/pom.xml; then
-    echo 'PASTURESTACK_EOL_PROFILE_PRESENT profile=spring-5' >&2
+if grep -R -E -q 'spring\.boot3\.version|org\.springframework6\.version|<id>spring-[1-6]</id>|hazelcast-spring-boot3|tested\.spring\.override' \
+        hazelcast-parent/pom.xml hazelcast-spring/pom.xml hazelcast-spring-tests/pom.xml \
+        hazelcast-spring-boot-autoconfiguration; then
+    echo 'PASTURESTACK_EOL_SPRING_LINE_PRESENT expected=Spring_Boot_4_and_Spring_Framework_7_only' >&2
     exit 1
 fi
 if grep -R -E -q 'database\.history|database\.server\.name|\.(white|black)list' \
@@ -129,7 +132,7 @@ grep -A1 -F '<artifactId>maven-install-plugin</artifactId>' hazelcast-parent/pom
 grep -A1 -F '<artifactId>maven-dependency-plugin</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.11.0</version>'
 grep -Fq '<kotlin.compiler.daemon>false</kotlin.compiler.daemon>' pom.xml
 grep -Fq '<release>${jdk.version}</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
-grep -Fq '<jdk.version>8</jdk.version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<jdk.version>25</jdk.version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<arg>-Xlint:-options</arg>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<release>25</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
 grep -Fq '<release>25</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml

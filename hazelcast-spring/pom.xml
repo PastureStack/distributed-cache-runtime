@@ -117,11 +117,7 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <!-- Compile with not the newest version.
-                     we want to ensure compatibility with Spring 6 this way
-                     and only test with other versions
-                 -->
-                <version>${spring.boot3.version}</version>
+                <version>${spring.boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
