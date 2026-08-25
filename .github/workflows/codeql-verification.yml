@@ -57,10 +57,10 @@ jobs:
         run: |
           set -euo pipefail
           test -z "$(git status --porcelain)"
-          test "$(git rev-parse 60c31e3750cbad64f5720e2e02f0a9830973193c^{commit})" = \
-            60c31e3750cbad64f5720e2e02f0a9830973193c
-          git merge-base --is-ancestor 60c31e3750cbad64f5720e2e02f0a9830973193c HEAD
-          grep -Fxq 'distributionSha256Sum=55fadd669532a3205d5db95f490bf13971d8b0843526f407f29db0e61f074ab3' \
+          test "$(git rev-parse 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c^{commit})" = \
+            520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c
+          git merge-base --is-ancestor 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c HEAD
+          grep -Fxq 'distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce' \
             .mvn/wrapper/maven-wrapper.properties
           test "$(python --version)" = 'Python 3.14.7'
 
