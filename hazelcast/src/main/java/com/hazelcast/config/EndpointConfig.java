@@ -353,7 +353,7 @@ public class EndpointConfig implements NamedConfig {
     /**
      * Keep-Alive idle time: the number of seconds of idle time before keep-alive initiates a probe.
      * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}.
-     * Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     * Requires JDK 25 or later and the required
      * <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
      *
      * @return the configured value of Keep-Alive idle time.
@@ -370,7 +370,7 @@ public class EndpointConfig implements NamedConfig {
      * Valid values are 1 to 32767.
      * <p/>
      * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}.
-     * Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     * Requires JDK 25 or later and the required
      * <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
      *
      * @since 5.3.0
@@ -388,7 +388,7 @@ public class EndpointConfig implements NamedConfig {
     /**
      * Keep-Alive interval: the number of seconds between keep-alive probes.
      * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}.
-     * Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     * Requires JDK 25 or later and the required
      * <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
      *
      * @return the configured value of Keep-Alive interval time.
@@ -405,8 +405,8 @@ public class EndpointConfig implements NamedConfig {
      * Set the number of seconds between keep-alive probes. Notice that this is the number of seconds between probes after the
      * initial {@link #setSocketKeepIdleSeconds(int) keep-alive idle time} has passed. Valid values are 1 to 32767.
      * <p/>
-     * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}. Requires a recent JDK 8, JDK
-     * 11 or greater version that includes the required <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
+     * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}. Requires JDK 25 or later and
+     * the required <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
      *
      * @since 5.3.0
      * @see <a href=
@@ -425,7 +425,7 @@ public class EndpointConfig implements NamedConfig {
      * Keep-Alive count: the maximum number of TCP keep-alive probes to send before giving up and closing the connection if no
      * response is obtained from the other side.
      * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}.
-     * Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     * Requires JDK 25 or later and the required
      * <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
      *
      * @return the configured value of Keep-Alive probe count.
@@ -442,7 +442,7 @@ public class EndpointConfig implements NamedConfig {
      * response is obtained from the other side. Valid values are 1 to 127.
      * <p/>
      * This option is only applicable when {@link #setSocketKeepAlive(boolean) keep alive is true}.
-     * Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     * Requires JDK 25 or later and the required
      * <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.
      *
      * @since 5.3.0

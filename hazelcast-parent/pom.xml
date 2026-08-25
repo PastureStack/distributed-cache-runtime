@@ -93,7 +93,10 @@
 
         <!-- Match parquet and avro version - parquet-avro depends on avro - https://mvnrepository.com/artifact/org.apache.parquet/parquet-avro -->
         <avro.version>1.12.2</avro.version>
-        <!-- Aircompressor 3.x targets JDK 25; keep the patched Java 8/17-compatible 2.x line. -->
+        <!-- Parquet 1.18.0 compiles against the aircompressor 2.x byte-array API.
+             Aircompressor 3.x is a different artifact/package and MemorySegment API, so it is
+             not a drop-in dependency update. Keep Parquet's current 2.0.3 dependency until
+             upstream Parquet publishes a compatible codec migration. -->
         <aircompressor.version>2.0.3</aircompressor.version>
         <aws.sdk2.version>2.54.2</aws.sdk2.version>
         <calcite.version>1.42.0</calcite.version>

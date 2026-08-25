@@ -215,7 +215,7 @@ public final class ClusterProperty {
      * <ul>
      *     <li>This option is only applicable to member-side sockets when {@link #SOCKET_KEEP_ALIVE keep alive is true}.</li>
      *     <li>When using {@link AdvancedNetworkConfig}, set the respective socket option in {@link EndpointConfig}.</li>
-     *     <li>Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     *     <li>Requires JDK 25 or later and the required
      *     <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.</li>
      * </ul>
      *
@@ -233,7 +233,7 @@ public final class ClusterProperty {
      * <ul>
      *     <li>This option is only applicable to member-side sockets when {@link #SOCKET_KEEP_ALIVE keep alive is true}.</li>
      *     <li>When using {@link AdvancedNetworkConfig}, set the respective socket option in {@link EndpointConfig}.</li>
-     *     <li>Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     *     <li>Requires JDK 25 or later and the required
      *     <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.</li>
      * </ul>
      *
@@ -253,7 +253,7 @@ public final class ClusterProperty {
      * <ul>
      *     <li>This option is only applicable to member-side sockets when {@link #SOCKET_KEEP_ALIVE keep alive is true}.</li>
      *     <li>When using {@link AdvancedNetworkConfig}, set the respective socket option in {@link EndpointConfig}.</li>
-     *     <li>Requires a recent JDK 8, JDK 11 or greater version that includes the required
+     *     <li>Requires JDK 25 or later and the required
      *     <a href="https://bugs.openjdk.org/browse/JDK-8194298">JDK support</a>.</li>
      * </ul>
      * @since 5.3.0

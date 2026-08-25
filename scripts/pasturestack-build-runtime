@@ -132,7 +132,7 @@ grep -A1 -F '<artifactId>maven-install-plugin</artifactId>' hazelcast-parent/pom
 grep -A1 -F '<artifactId>maven-dependency-plugin</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.11.0</version>'
 grep -Fq '<kotlin.compiler.daemon>false</kotlin.compiler.daemon>' pom.xml
 grep -Fq '<release>${jdk.version}</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
-grep -Fq '<jdk.version>8</jdk.version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<jdk.version>25</jdk.version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<arg>-Xlint:-options</arg>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<release>25</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
 grep -Fq '<release>25</release>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
