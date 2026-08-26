@@ -16,7 +16,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
-            <version>5.7.3-pasturestack.2</version>
+            <version>5.7.3-pasturestack.3</version>
         </dependency>
     </dependencies>
 
