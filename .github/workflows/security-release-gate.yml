@@ -8,6 +8,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release_ref:
+        description: Optional signed PastureStack release tag to build and retain
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +31,7 @@ jobs:
       - name: Check out candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.release_ref || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -55,10 +61,19 @@ jobs:
           update-environment: true
 
       - name: Verify candidate identity and supply-chain pins
+        id: candidate
         shell: bash
+        env:
+          RELEASE_REF: ${{ inputs.release_ref || '' }}
         run: |
           set -euo pipefail
           test -z "$(git status --porcelain)"
+          if [[ -n "$RELEASE_REF" ]]; then
+            test "$GITHUB_EVENT_NAME" = workflow_dispatch
+            [[ "$RELEASE_REF" =~ ^v5\.7\.3-pasturestack\.[0-9]+$ ]]
+            test "$(git cat-file -t "$RELEASE_REF")" = tag
+            test "$(git rev-parse HEAD)" = "$(git rev-parse "${RELEASE_REF}^{commit}")"
+          fi
           test "$(git rev-parse 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c^{commit})" = \
             520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c
           git merge-base --is-ancestor 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c HEAD
@@ -66,7 +81,9 @@ jobs:
             .mvn/wrapper/maven-wrapper.properties
           test "$(python --version)" = 'Python 3.14.7'
           mkdir -p evidence
-          git rev-parse HEAD > evidence/source-revision.txt
+          source_sha="$(git rev-parse HEAD)"
+          printf '%s\n' "$source_sha" > evidence/source-revision.txt
+          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
           sha256sum .mvn/wrapper/maven-wrapper.properties > evidence/source-locks.sha256
           git ls-files -- 'pom.xml' '**/pom.xml' '.mvn/**' 'mvnw' 'mvnw.cmd' \
             | LC_ALL=C sort -u > evidence/maven-input-files.txt
@@ -514,11 +531,24 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: distributed-cache-security-${{ github.sha }}
+          name: distributed-cache-security-${{ steps.candidate.outputs.source_sha || github.sha }}
           path: evidence/
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
+          include-hidden-files: false
+
+      - name: Retain exact reviewed release artifact
+        if: success() && inputs.release_ref != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: distributed-cache-release-${{ steps.candidate.outputs.source_sha }}
+          path: |
+            dist/hazelcast-5.7.3-pasturestack.4.jar
+            evidence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
           include-hidden-files: false
 
       - name: Clean runner resources
