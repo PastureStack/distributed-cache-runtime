@@ -3,14 +3,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-runtime_version=5.7.3-pasturestack.4
+runtime_version=5.7.4
 output_dir=${PASTURESTACK_OUTPUT_DIR:-dist}
 jar_source="hazelcast/target/hazelcast-${runtime_version}.jar"
 jar_target="${output_dir}/hazelcast-${runtime_version}.jar"
 
 # Fail before compiling if a reviewed security floor is accidentally reverted.
 if find . -name pom.xml -type f -exec grep -l '<version>5.7.0</version>' {} + | grep -q .; then
-    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.3-pasturestack.4' >&2
+    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.4' >&2
     exit 1
 fi
 grep -Fq '<spring.boot.version>4.1.1</spring.boot.version>' hazelcast-parent/pom.xml
@@ -121,9 +121,9 @@ grep -Fq '<version>${postgresql.version}</version>' hazelcast-parent/pom.xml
 grep -Fq '<version>${tomcat.embed.version}</version>' pom.xml
 grep -Fq '<groupId>org.hibernate.orm</groupId>' hazelcast-it/distribution-it/pom.xml
 grep -Fq '<version>${hibernate.orm.version}</version>' hazelcast-it/distribution-it/pom.xml
-grep -Fq '<version>5.7.3-pasturestack.4</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
-grep -Fq '<version>5.7.3-pasturestack.4</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
-grep -Fq '<version>5.7.3-pasturestack.4</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -Fq '<version>5.7.4</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>5.7.4</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>5.7.4</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml

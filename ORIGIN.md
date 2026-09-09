@@ -5,7 +5,8 @@ This repository is derived from the public [Hazelcast repository](https://github
 - Upstream release: `v5.7.0`
 - Upstream boundary commit: `60c31e3750cbad64f5720e2e02f0a9830973193c`
 - PastureStack maintenance line: linear commits after that upstream boundary
-- Maintained artifact: PastureStack Maven artifact 5.7.3-pasturestack.4 (numeric Hazelcast cluster runtime 5.7.3), based on Hazelcast 5.7.0, with reviewed source and dependency security updates
+- Historical maintained artifact: PastureStack Maven artifact 5.7.3-pasturestack.4 (numeric Hazelcast cluster runtime 5.7.3), based on Hazelcast 5.7.0, with reviewed source and dependency security updates
+- Current maintained artifact: pure numeric Maven artifact `5.7.4`; product identity and provenance remain in package metadata and release evidence
 
 The upstream Git history, copyright notices, author records, `LICENSE`, `NOTICE`, and file-level license headers are retained. PastureStack's maintenance commits do not replace or relicense upstream work, and PastureStack does not claim authorship of upstream contributions.
 
