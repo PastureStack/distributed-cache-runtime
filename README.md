@@ -3,10 +3,10 @@
 > [!IMPORTANT]
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
-The existing public Maven artifact `5.7.3-pasturestack.4` is immutable
-historical evidence. The maintained artifact produced by this source is the
-pure numeric successor `5.7.4`; product identity and provenance are recorded in
-metadata rather than encoded in the version. Generated Hazelcast
+Earlier public Maven artifacts remain immutable historical evidence. The
+maintained artifact produced by this source is `5.7.4`; every current and future
+PastureStack publication uses a pure numeric version, while product identity
+and provenance remain in metadata rather than the version. Generated Hazelcast
 cluster metadata reports numeric runtime version `5.7.3`, because the cluster
 protocol does not accept a Maven qualifier. See [ORIGIN.md](ORIGIN.md) for
 provenance and [SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for the exact
