@@ -4,13 +4,16 @@
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
 Earlier public Maven artifacts remain immutable historical evidence. The
-maintained artifact produced by this source is `5.7.4`; every current and future
-PastureStack publication uses a pure numeric version, while product identity
-and provenance remain in metadata rather than the version. Generated Hazelcast
-cluster metadata reports numeric runtime version `5.7.3`, because the cluster
-protocol does not accept a Maven qualifier. See [ORIGIN.md](ORIGIN.md) for
-provenance and [SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for the exact
-delta and release gates. The original upstream README follows unchanged below.
+current public GitHub Release is
+[`v5.7.4`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.4),
+and the maintained artifact version produced by this source is `5.7.4`. Every
+current and future PastureStack publication uses a pure numeric version, while
+product identity and provenance remain in metadata rather than the version.
+Generated Hazelcast cluster metadata reports numeric runtime version `5.7.3`,
+because the cluster protocol does not accept a Maven qualifier. See
+[ORIGIN.md](ORIGIN.md) for provenance and
+[SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for the exact delta and
+release gates. The original upstream README follows unchanged below.
 
 ---
 
