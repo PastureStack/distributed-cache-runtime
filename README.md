@@ -5,11 +5,14 @@
 
 Earlier public Maven artifacts remain immutable historical evidence. The
 current public GitHub Release is
-[`v5.7.4`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.4).
-This source prepares candidate
-artifact `5.7.5`; it has not yet been built, scanned, or published. See
-[5.7.5 candidate notes](RELEASE-NOTES-5.7.5.md) for the Jackson-only update and
-pending artifact verification. Every current and future PastureStack publication
+[`v5.7.5`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.5).
+It publishes the exact reviewed `hazelcast-5.7.5.jar` from source
+`a9aea563870201462dc24f778a06279a08ed5841`, with SHA-256
+`0f536a9c7bcd00f2369586fb6ca1606f7e45f3225e24795d10d38397051c8715`.
+See [5.7.5 release notes](RELEASE-NOTES-5.7.5.md) for its focused tests,
+embedded Jackson versions and verification boundaries. The Engine consumes
+this GitHub release asset; no new OCI/GHCR carrier is published by this release.
+Every current and future PastureStack publication
 uses a pure numeric version, while
 product identity and provenance remain in metadata rather than the version.
 Generated Hazelcast cluster metadata reports numeric runtime version `5.7.3`,
