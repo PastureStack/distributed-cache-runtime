@@ -5,9 +5,12 @@
 
 Earlier public Maven artifacts remain immutable historical evidence. The
 current public GitHub Release is
-[`v5.7.4`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.4),
-and the maintained artifact version produced by this source is `5.7.4`. Every
-current and future PastureStack publication uses a pure numeric version, while
+[`v5.7.4`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.4).
+This source prepares candidate
+artifact `5.7.5`; it has not yet been built, scanned, or published. See
+[5.7.5 candidate notes](RELEASE-NOTES-5.7.5.md) for the Jackson-only update and
+pending artifact verification. Every current and future PastureStack publication
+uses a pure numeric version, while
 product identity and provenance remain in metadata rather than the version.
 Generated Hazelcast cluster metadata reports numeric runtime version `5.7.3`,
 because the cluster protocol does not accept a Maven qualifier. See
