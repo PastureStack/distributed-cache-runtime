@@ -23,7 +23,7 @@
     <groupId>com.hazelcast</groupId>
     <artifactId>hazelcast-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.7.4</version>
+    <version>5.7.5</version>
 
     <name>Hazelcast Parent POM</name>
     <description>Provides a base configuration for Hazelcast Platform builds</description>
@@ -113,8 +113,8 @@
         <hadoop.version>3.5.0</hadoop.version>
         <!-- PastureStack security maintenance: retain the 5.7.0 API while updating the shaded Jackson runtimes. -->
         <!-- Keep the project property distinct from both Jackson BOMs' internal jackson.version property. -->
-        <jackson3.version>3.2.2</jackson3.version>
-        <jackson2.version>2.22.2</jackson2.version>
+        <jackson3.version>3.2.3</jackson3.version>
+        <jackson2.version>2.22.3</jackson2.version>
         <jackson.annotation.version>2.22</jackson.annotation.version>
         <jline.version>4.3.1</jline.version>
         <json-surfer.version>0.13</json-surfer.version>
