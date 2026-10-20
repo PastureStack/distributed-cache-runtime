@@ -12,6 +12,12 @@ It publishes the exact reviewed `hazelcast-5.7.5.jar` from source
 See [5.7.5 release notes](RELEASE-NOTES-5.7.5.md) for its focused tests,
 embedded Jackson versions and verification boundaries. The Engine consumes
 this GitHub release asset; no new OCI/GHCR carrier is published by this release.
+Source dependency-management floors are LZ4 `1.11.4` for optional Kafka
+connectors and RabbitMQ Java client `5.37.0` for JMS integration tests.
+Both are absent from the published `5.7.5` core JAR, its resolved runtime tree,
+and its release SBOM; this source-only maintenance does not require a new core
+artifact or downstream Engine release. See the dependency assessments in
+[SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md#lz4-source-floor-and-release-impact).
 Every current and future PastureStack publication
 uses a pure numeric version, while
 product identity and provenance remain in metadata rather than the version.

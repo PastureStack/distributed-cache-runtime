@@ -35,7 +35,7 @@ The current published Maven artifact is `5.7.5`, from signed tag `v5.7.5` and so
 | Apache Tomcat Embed Core | 11.0.20 | 11.0.25 | Test dependency |
 | PostgreSQL JDBC | 42.7.11 | 42.7.13 | Database integration tests |
 | Hibernate ORM | 5.6.15.Final | 7.4.5.Final | Distribution and Spring integration tests |
-| LZ4 Java maintained fork | 1.10.1 | 1.11.2 | Elasticsearch extension runtime |
+| LZ4 Java maintained fork | 1.10.1 | 1.11.4 | Optional Kafka connector runtime floor; absent from the published core runtime |
 | Apache HTTP Core 5 | 5.3.5 / 5.3.4 | 5.4.3 | SQL, cloud, and Elasticsearch extension runtime |
 | Apache HTTP Client 5 | 5.5 | 5.6.4 | SQL and extension runtime |
 | Elasticsearch Java client | HLRC 7.17.29 | Java API Client 9.5.1 | Elasticsearch connector runtime |
@@ -47,7 +47,7 @@ The current published Maven artifact is `5.7.5`, from signed tag `v5.7.5` and so
 | ZooKeeper | 3.8.4 | 3.9.5 | SQL integration tests |
 | Square Wire runtime | 5.1.0 | 6.4.6 | Kafka/Schema Registry tests |
 | Micrometer Core | 1.16.3 | 1.17.1 | Messaging integration tests |
-| RabbitMQ Java client | 5.29.0 | 5.35.0 | Messaging integration tests |
+| RabbitMQ Java client | 5.29.0 | 5.37.0 | JMS integration tests; absent from the published core runtime |
 | Plexus Utils | 3.6.0 | 4.1.0 | Maven build tooling |
 | Logback | 1.3.15 | 1.6.3 | Test logging |
 | Vert.x Core | 4.5.24 | 5.1.6 | Cloud integration tests |
@@ -63,6 +63,56 @@ Debezium was migrated from the end-of-life 1.9 line to 3.6.1.Final. The CDC impl
 The Elasticsearch connector was migrated from the end-of-life 7.17 High Level REST Client to the Elasticsearch Java API Client 9.5.1 and its REST 5 transport. Source, sink, bulk, scroll, slice, co-location, authentication, and request-option paths use the current API. The historical `hazelcast-jet-elasticsearch-7` artifactId remains only to preserve the published module coordinate; it no longer describes the client generation. The resolved connector graph contains no High Level REST Client, Elasticsearch server, Lucene, or legacy LZ4 artifact.
 
 Jetty 9 was eliminated instead of forcing an unrelated Jetty 12 server migration into connectors or tests. Kafka and SQL Schema Registry tests now use Confluent's supported in-process `MockSchemaRegistry` client and retain schema-registration semantics without starting the Jetty-backed REST application. SQL Hadoop tests retain the external `hdfs://` connector path while Hadoop's ViewFS overload maps the isolated test root to a temporary local filesystem; this removes `MiniDFSCluster` and its Jetty server graph without replacing the Hadoop connector under test. Hadoop 3.5.0 also removes the `hadoop-azure -> jetty-util-ajax -> jetty-util` runtime path retained by Hadoop 3.4.3. The resolved Kafka, SQL, Hadoop distribution, Azure, and S3 connector graphs contain no `org.eclipse.jetty` artifact.
+
+## LZ4 Source Floor and Release Impact
+
+The source management entry for `at.yawk.lz4:lz4-java` now requires the official
+[1.11.4 security release](https://github.com/yawkat/lz4-java/releases/tag/v1.11.4).
+It patches [CVE-2026-106449](https://github.com/yawkat/lz4-java/security/advisories/GHSA-343h-94h5-c4wr)
+(empty-block recursion), [CVE-2026-106450](https://github.com/yawkat/lz4-java/security/advisories/GHSA-gm45-99xc-r7wv)
+(frame-buffer allocation amplification), and [CVE-2026-106451](https://github.com/yawkat/lz4-java/security/advisories/GHSA-mcr4-qmvw-px4g)
+(native-library temporary-file replacement). Kafka client `4.3.1` declares
+this runtime dependency transitively; the shared management entry supplies the
+patched version to optional Kafka connectors without adding it to the core.
+
+On 2026-10-20, the published `v5.7.5` core JAR was read back and its SHA-256
+matched `0f536a9c7bcd00f2369586fb6ca1606f7e45f3225e24795d10d38397051c8715`.
+Its complete ZIP entry list contains no LZ4, `net/jpountz`, or XXHash classes,
+native libraries, service metadata, or Maven metadata. The same release's
+[`maven-runtime-dependency-tree.json`](https://github.com/PastureStack/distributed-cache-runtime/releases/download/v5.7.5/maven-runtime-dependency-tree.json)
+and [`hazelcast-5.7.5.cdx.json`](https://github.com/PastureStack/distributed-cache-runtime/releases/download/v5.7.5/hazelcast-5.7.5.cdx.json)
+contain no LZ4 coordinate. Current core and extension production/test sources
+have no LZ4 API call; the former Elasticsearch server/Lucene dependency path
+was removed during the Java API Client migration. A managed version alone
+does not add a dependency to a module.
+
+These findings establish that the published core artifact is unaffected by
+these LZ4 advisories. This is a source-floor update, not a runtime vulnerability
+fix; `v5.7.5` remains the current immutable publication and no new core JAR or
+downstream Engine release is needed. The older 1.11.2 acceptance statement
+above records the historical maintenance pass rather than the current floor.
+
+Upstream rates CVE-2026-106451 Low, while GitHub's reviewed advisory and
+Dependabot alert rate it High. Both source severities are retained; proving
+that this artifact lacks the dependency does not downgrade the advisory.
+
+## RabbitMQ Test Dependency and Release Impact
+
+The shared `com.rabbitmq:amqp-client` floor is `5.37.0`, the first published
+upstream version covering both [CVE-2026-106121](https://github.com/rabbitmq/rabbitmq-java-client/security/advisories/GHSA-cqgh-8p3p-mx4m)
+(truncated JSON-RPC input causing unbounded allocation or a nonterminating
+loop) and [CVE-2026-106122](https://github.com/rabbitmq/rabbitmq-java-client/security/advisories/GHSA-7822-rcf6-97fx)
+(malformed UTF-8 short strings becoming impossible to re-encode).
+The former advisory and [5.37.0 release notes](https://github.com/rabbitmq/rabbitmq-java-client/releases/tag/v5.37.0)
+identify the JSON reader fix in 5.37.0; upstream has no 5.36.1 publication.
+This version is selected for the fixes rather than because it shares a
+Dependabot update group with LZ4.
+
+The repository introduces this client through test-scoped
+`com.rabbitmq.jms:rabbitmq-jms:3.9.0` in `hazelcast/pom.xml`, used by
+`JmsSourceIntegrationTest_RabbitMQ`. It is absent from the same verified
+`v5.7.5` core JAR, runtime dependency tree, and release SBOM described above.
+The test dependency update therefore requires no new core or Engine release.
 
 ## Validation Boundaries
 
@@ -105,7 +155,7 @@ All Spring Boot 3 / Spring Framework 6 compatibility profiles and the `hazelcast
 A release is acceptable only when all of the following are true:
 
 1. The upstream `v5.7.0` boundary recorded in [ORIGIN.md](ORIGIN.md) is an ancestor of the candidate, and every later commit remains on the linear PastureStack maintenance line.
-2. Every reactor POM and command-line test fixture resolves the maintained artifact at 5.7.5, while generated cluster runtime metadata resolves to numeric version 5.7.3. Maven Wrapper 3.9.16 is downloaded only from Maven Central; its ZIP and tar.gz distributions are verified against separate committed SHA-256 values before execution. The source version gate requires Java 25, Ubuntu 24.04 LTS cloud test images, Checkstyle 14.0.0, Avro 1.12.2, Jackson 2.22.3 and 3.2.3, Janino 3.1.12, Parquet 1.18.0, JLine 4.3.1 with FFM, Protobuf Java 4.36.0 and Python 7.36.0, Netty 4.2.17.Final, Lettuce 7.7.0.RELEASE, Kafka 4.3.1, Confluent Platform 8.3.1, gRPC Java 1.83.1 and Python 1.83.0, Aircompressor 2.0.3, Hadoop 3.5.0, Maven Compiler Plugin 3.15.0, Maven JAR Plugin 3.5.1, Maven Install Plugin 3.1.4, Maven Dependency Plugin 3.11.0, an in-process Kotlin Maven compiler, MINA 2.2.9, Tomcat 11.0.25, PostgreSQL JDBC 42.7.13, Hibernate ORM 7.4.5.Final, LZ4 Java 1.11.2, Apache HTTP Core 5.4.3, Apache HTTP Client 5.6.4, Elasticsearch Java API Client 9.5.1, Commons Configuration 2.15.1, OpenTelemetry 1.65.0, Log4j 2.26.1, Debezium 3.6.1.Final, Bouncy Castle bcprov 1.85.2 with bcpkix/bcutil 1.85, ZooKeeper 3.9.5, Wire 6.4.6, Micrometer 1.17.1, RabbitMQ client 5.35.0, Plexus Utils 4.1.0, Logback 1.6.3, Vert.x 5.1.6, Spring Boot 4.1.1, and Spring Framework 7.0.9. It also verifies that Jansi, all Spring Boot 3 / Spring Framework 6 compatibility profiles and artifacts, legacy Debezium configuration keys, Elasticsearch HLRC, embedded Schema Registry server, Hadoop MiniDFSCluster, Jetty, and dependency-owned JUnit platform settings are absent from their governed outputs.
+2. Every reactor POM and command-line test fixture resolves the maintained artifact at 5.7.5, while generated cluster runtime metadata resolves to numeric version 5.7.3. Maven Wrapper 3.9.16 is downloaded only from Maven Central; its ZIP and tar.gz distributions are verified against separate committed SHA-256 values before execution. The source version gate requires Java 25, Ubuntu 24.04 LTS cloud test images, Checkstyle 14.0.0, Avro 1.12.2, Jackson 2.22.3 and 3.2.3, Janino 3.1.12, Parquet 1.18.0, JLine 4.3.1 with FFM, Protobuf Java 4.36.0 and Python 7.36.0, Netty 4.2.17.Final, Lettuce 7.7.0.RELEASE, Kafka 4.3.1, Confluent Platform 8.3.1, gRPC Java 1.83.1 and Python 1.83.0, Aircompressor 2.0.3, Hadoop 3.5.0, Maven Compiler Plugin 3.15.0, Maven JAR Plugin 3.5.1, Maven Install Plugin 3.1.4, Maven Dependency Plugin 3.11.0, an in-process Kotlin Maven compiler, MINA 2.2.9, Tomcat 11.0.25, PostgreSQL JDBC 42.7.13, Hibernate ORM 7.4.5.Final, LZ4 Java 1.11.4, Apache HTTP Core 5.4.3, Apache HTTP Client 5.6.4, Elasticsearch Java API Client 9.5.1, Commons Configuration 2.15.1, OpenTelemetry 1.65.0, Log4j 2.26.1, Debezium 3.6.1.Final, Bouncy Castle bcprov 1.85.2 with bcpkix/bcutil 1.85, ZooKeeper 3.9.5, Wire 6.4.6, Micrometer 1.17.1, RabbitMQ client 5.37.0, Plexus Utils 4.1.0, Logback 1.6.3, Vert.x 5.1.6, Spring Boot 4.1.1, and Spring Framework 7.0.9. It also verifies that Jansi, all Spring Boot 3 / Spring Framework 6 compatibility profiles and artifacts, legacy Debezium configuration keys, Elasticsearch HLRC, embedded Schema Registry server, Hadoop MiniDFSCluster, Jetty, and dependency-owned JUnit platform settings are absent from their governed outputs.
 3. Maven's resolved dependency graph contains those reviewed versions, no older duplicate of the same artifacts, no Elasticsearch HLRC/server/Lucene legacy graph in the Elasticsearch connector, and no `org.eclipse.jetty` graph in the Kafka, SQL, Hadoop distribution, Azure, or S3 modules.
 4. The produced file is `hazelcast-5.7.5.jar`; its embedded core Maven metadata reports 5.7.5, its generated cluster runtime metadata reports numeric version 5.7.3, and its embedded Jackson metadata reports Jackson 2.22.3 and Jackson 3.2.3. The full source commit and abbreviated revision embedded in `GeneratedBuildProperties` must match the OCI revision supplied to the build; unresolved placeholders are rejected during packaging.
 5. Relevant core, Spring, database, and distribution integration tests pass on Java 25 LTS. The focused source-boundary suite must retain its expected suite and test counts so an accidentally undiscovered test cannot appear successful.

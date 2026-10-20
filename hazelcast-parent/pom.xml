@@ -566,7 +566,7 @@
             <dependency>
                 <groupId>com.rabbitmq</groupId>
                 <artifactId>amqp-client</artifactId>
-                <version>5.35.0</version>
+                <version>5.37.0</version>
             </dependency>
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
@@ -661,15 +661,13 @@
                 <version>1.2.26</version>
             </dependency>
             <!--
-              Resolves dependency convergence between:
-              - `org.apache.kafka:kafka-clients`
-              - `org.elasticsearch:elasticsearch-lz4`
-              Should be set to the dependency version specified in the former
+              Security floor for optional consumers of the maintained LZ4 fork.
+              This management entry does not add LZ4 to the core runtime graph.
             -->
             <dependency>
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.11.2</version>
+                <version>1.11.4</version>
             </dependency>
             <dependency>
                 <groupId>org.codehaus.janino</groupId>
