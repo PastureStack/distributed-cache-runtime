@@ -78,7 +78,7 @@ grep -A2 -F '<artifactId>bcutil-jdk18on</artifactId>' hazelcast-parent/pom.xml |
 grep -A2 -F '<artifactId>zookeeper</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>3.9.5</version>'
 grep -A2 -F '<artifactId>wire-runtime-jvm</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>6.4.6</version>'
 grep -A2 -F '<artifactId>micrometer-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.17.1</version>'
-grep -A2 -F '<artifactId>amqp-client</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.35.0</version>'
+grep -A2 -F '<artifactId>amqp-client</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.37.0</version>'
 grep -A2 -F '<artifactId>plexus-utils</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>4.1.0</version>'
 grep -A2 -F '<artifactId>logback-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.6.3</version>'
 grep -A2 -F '<artifactId>vertx-core</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>5.1.6</version>'
@@ -115,7 +115,7 @@ grep -Fq 'org.apache.hadoop.fs.viewfs.ViewFileSystemOverloadScheme' \
     hazelcast-sql/src/test/resources/core-site.xml
 grep -Fq 'public abstract class ProtobufSerializer<T extends Message>' \
     extensions/protobuf/src/main/java/com/hazelcast/jet/protobuf/ProtobufSerializer.java
-grep -A2 -F '<groupId>at.yawk.lz4</groupId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.11.2</version>'
+grep -A2 -F '<groupId>at.yawk.lz4</groupId>' hazelcast-parent/pom.xml | grep -Fq '<version>1.11.4</version>'
 grep -Fq '<version>${mina.version}</version>' hazelcast-parent/pom.xml
 grep -Fq '<version>${postgresql.version}</version>' hazelcast-parent/pom.xml
 grep -Fq '<version>${tomcat.embed.version}</version>' pom.xml
