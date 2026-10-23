@@ -50,8 +50,7 @@ jobs:
       - name: Verify Python packaging and CA tools
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: -r scripts/ci-python-requirements.lock
-          python -c "import sys, pip, certifi, pip._vendor.certifi as bundled; assert sys.version_info[:3] == (3,14,9); assert pip.__version__ == '26.2.2'; assert certifi.__version__ == '2026.10.19'; assert bundled.__version__ == '2026.10.19'; print(sys.version, pip.__version__, certifi.__version__, bundled.__version__)"
+          bash scripts/setup-ci-python-tools
 
       - name: Verify source and wrapper integrity
         shell: bash

@@ -4,8 +4,11 @@
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
 Release `5.7.6` uses the official Temurin `25.0.5+8`
-security update. CI uses Python `3.14.9`, pip `26.2.2`, and certifi
-`2026.10.19`. These are build and verification tools; the delivered JAR does
+security update. CI uses Python `3.14.9`, the internal pip
+`26.2.2+pasturestack.1` rebuild with patched urllib3 `2.8.0`, and certifi
+`2026.10.19`. A frozen upstream-vendoring helper verifies input/wheel hashes
+and streaming/TLS behavior in an isolated CI environment. This CI-only update
+does not replace the existing release artifact. These are verification tools; the delivered JAR does
 not contain a JRE or Python runtime. The optional OCI build retains Ubuntu
 24.04 and installs its matching CA security update before the verified JDK.
 The generated Hazelcast cluster version remains `5.7.3`.
