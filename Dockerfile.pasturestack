@@ -8,8 +8,26 @@ ENV MAVEN_OPTS="-Xms256m -Xmx1200m -XX:+UseSerialGC"
 ENV PASTURESTACK_VCS_REF="$VCS_REF"
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends unzip=6.0-28ubuntu4.1 \
+    && apt-get install --yes --no-install-recommends unzip=6.0-28ubuntu4.1 ca-certificates=20260816ubuntu0.24.04.1 \
     && rm -rf /var/lib/apt/lists/*
+
+# The upstream 25.0.5 image has not been published yet. Replace the builder JDK
+# with the official same-line binaries, keeping the pinned Ubuntu 24.04 base.
+RUN set -eux; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) jdk_arch=x64; jdk_sha256=68982529869257d0ee6b824ec5aa270ff8b118bb438670da0b97ebdab178d7fb ;; \
+      arm64) jdk_arch=aarch64; jdk_sha256=bb5b2ded252f21c6090cf780b0a408ad0d83bbb557e702955643557f13231880 ;; \
+      *) echo "Unsupported JDK architecture" >&2; exit 1 ;; \
+    esac; \
+    curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+      --output /tmp/temurin-jdk.tar.gz \
+      "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/OpenJDK25U-jdk_${jdk_arch}_linux_hotspot_25.0.5_8.tar.gz"; \
+    printf '%s  %s\n' "$jdk_sha256" /tmp/temurin-jdk.tar.gz | sha256sum --check; \
+    rm -rf /opt/java/openjdk; \
+    mkdir -p /opt/java/openjdk; \
+    tar -xzf /tmp/temurin-jdk.tar.gz --strip-components=1 -C /opt/java/openjdk; \
+    rm /tmp/temurin-jdk.tar.gz; \
+    java -version 2>&1 | grep -F 'Temurin-25.0.5+8'
 
 WORKDIR /src
 COPY . .
@@ -19,12 +37,12 @@ FROM scratch
 
 ARG VCS_REF
 LABEL org.opencontainers.image.title="PastureStack Distributed Cache Runtime" \
-      org.opencontainers.image.description="PastureStack artifact 5.7.5 with Hazelcast cluster runtime 5.7.3 and reviewed security updates" \
+      org.opencontainers.image.description="PastureStack artifact 5.7.6 with Hazelcast cluster runtime 5.7.3 and reviewed security updates" \
       org.opencontainers.image.source="https://github.com/PastureStack/distributed-cache-runtime" \
       org.opencontainers.image.revision="$VCS_REF" \
       org.opencontainers.image.licenses="Apache-2.0 OR LicenseRef-Hazelcast-Community" \
       org.opencontainers.image.vendor="PastureStack"
 
-COPY --from=build /src/dist/hazelcast-5.7.5.jar /opt/pasturestack/vendor/hazelcast-5.7.5.jar
-COPY --from=build /src/dist/hazelcast-5.7.5.jar.sha256 /opt/pasturestack/vendor/hazelcast-5.7.5.jar.sha256
-COPY LICENSE NOTICE ORIGIN.md SECURITY-MAINTENANCE.md RELEASE-NOTES-5.7.5.md /opt/pasturestack/licenses/
+COPY --from=build /src/dist/hazelcast-5.7.6.jar /opt/pasturestack/vendor/hazelcast-5.7.6.jar
+COPY --from=build /src/dist/hazelcast-5.7.6.jar.sha256 /opt/pasturestack/vendor/hazelcast-5.7.6.jar.sha256
+COPY LICENSE NOTICE ORIGIN.md SECURITY-MAINTENANCE.md RELEASE-NOTES-5.7.6.md /opt/pasturestack/licenses/

@@ -3,14 +3,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-runtime_version=5.7.5
+runtime_version=5.7.6
 output_dir=${PASTURESTACK_OUTPUT_DIR:-dist}
 jar_source="hazelcast/target/hazelcast-${runtime_version}.jar"
 jar_target="${output_dir}/hazelcast-${runtime_version}.jar"
 
 # Fail before compiling if a reviewed security floor is accidentally reverted.
 if find . -name pom.xml -type f -exec grep -l '<version>5.7.0</version>' {} + | grep -q .; then
-    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.5' >&2
+    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.6' >&2
     exit 1
 fi
 grep -Fq '<spring.boot.version>4.1.1</spring.boot.version>' hazelcast-parent/pom.xml
@@ -22,6 +22,8 @@ grep -Fq '<hazelcast.runtime.version>5.7.3</hazelcast.runtime.version>' hazelcas
 grep -Fq 'VERSION = "${hazelcast.runtime.version}"' hazelcast/src/main/template/com/hazelcast/instance/GeneratedBuildProperties.java
 grep -Fq '<exclude>junit-platform.properties</exclude>' hazelcast/pom.xml
 grep -Fxq 'FROM eclipse-temurin:25.0.4_7-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3 AS build' Dockerfile.pasturestack
+grep -Fq 'Temurin-25.0.5+8' Dockerfile.pasturestack
+grep -Fq 'ca-certificates=20260816ubuntu0.24.04.1' Dockerfile.pasturestack
 grep -Fxq 'ENV MAVEN_OPTS="-Xms256m -Xmx1200m -XX:+UseSerialGC"' Dockerfile.pasturestack
 grep -Fq 'apt-get install --yes --no-install-recommends unzip' Dockerfile.pasturestack
 grep -Fq 'javac --release 25 ' scripts/check-xml-parser-hardening
@@ -121,9 +123,9 @@ grep -Fq '<version>${postgresql.version}</version>' hazelcast-parent/pom.xml
 grep -Fq '<version>${tomcat.embed.version}</version>' pom.xml
 grep -Fq '<groupId>org.hibernate.orm</groupId>' hazelcast-it/distribution-it/pom.xml
 grep -Fq '<version>${hibernate.orm.version}</version>' hazelcast-it/distribution-it/pom.xml
-grep -Fq '<version>5.7.5</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
-grep -Fq '<version>5.7.5</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
-grep -Fq '<version>5.7.5</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -Fq '<version>5.7.6</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>5.7.6</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>5.7.6</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml

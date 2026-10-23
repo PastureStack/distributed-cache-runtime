@@ -24,8 +24,8 @@ jobs:
       - name: Install verified Temurin LTS JDK
         shell: bash
         env:
-          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz
-          JDK_SHA256: dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e
+          JDK_URL: https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.5_8.tar.gz
+          JDK_SHA256: 68982529869257d0ee6b824ec5aa270ff8b118bb438670da0b97ebdab178d7fb
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/temurin-jdk.tar.gz"
@@ -38,13 +38,20 @@ jobs:
           printf 'JAVA_HOME=%s\n' "$java_home" >> "$GITHUB_ENV"
           printf '%s/bin\n' "$java_home" >> "$GITHUB_PATH"
           "$java_home/bin/java" -version
+          "$java_home/bin/java" -version 2>&1 | grep -F 'Temurin-25.0.5+8'
 
       - name: Install pinned evidence verifier runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.14.7'
+          python-version: '3.14.9'
           check-latest: false
           update-environment: true
+
+      - name: Verify Python packaging and CA tools
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: -r scripts/ci-python-requirements.lock
+          python -c "import sys, pip, certifi, pip._vendor.certifi as bundled; assert sys.version_info[:3] == (3,14,9); assert pip.__version__ == '26.2.2'; assert certifi.__version__ == '2026.10.19'; assert bundled.__version__ == '2026.10.19'; print(sys.version, pip.__version__, certifi.__version__, bundled.__version__)"
 
       - name: Verify source and wrapper integrity
         shell: bash
@@ -56,7 +63,7 @@ jobs:
           git merge-base --is-ancestor 520a6d217e8809bd2a0d44ecbae5a8bcdb958b2c HEAD
           grep -Fxq 'distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce' \
             .mvn/wrapper/maven-wrapper.properties
-          test "$(python --version)" = 'Python 3.14.7'
+          test "$(python --version)" = 'Python 3.14.9'
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8

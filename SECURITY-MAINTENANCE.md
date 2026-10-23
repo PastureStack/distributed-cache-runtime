@@ -9,7 +9,7 @@ The current published Maven artifact is `5.7.5`, from signed tag `v5.7.5` and so
 | Component | Upstream 5.7.0 | PastureStack maintained version | Scope |
 | --- | --- | --- | --- |
 | Java release / cloud test VM | 17 / retired mixed-runtime fixtures | 25 LTS / Ubuntu 24.04 LTS | Compiler target, CI, and cloud integration runtime |
-| Container build JDK | Unpinned release line | Temurin 25.0.4+7 on Ubuntu 24.04, digest pinned | Reproducible OCI build stage aligned with CI; build-only `unzip` preserves Maven ZIP checksum verification; a bounded 1.2 GiB Maven heap prevents javac OOM on the 2 GiB builder |
+| Container build JDK | Unpinned release line | Temurin 25.0.5+8 on the pinned Ubuntu 24.04 builder | Official JDK archives are SHA-256 verified for amd64 and arm64; the old builder JDK is replaced because the new upstream OCI tag is not yet available. Ubuntu CA is pinned to 20260816ubuntu0.24.04.1; build-only `unzip` preserves Maven ZIP checksum verification and the Maven heap stays at 1.2 GiB |
 | Jackson 2 core and databind | 2.21.2 | 2.22.3 | Shaded runtime |
 | Jackson 3 core, databind, and JR | 3.1.2 | 3.2.3 | Shaded runtime |
 | Netty | 4.1.132.Final | 4.2.17.Final | Extension and Hadoop integration dependencies |
@@ -29,7 +29,7 @@ The current published Maven artifact is `5.7.5`, from signed tag `v5.7.5` and so
 | Maven JAR Plugin | 3.1.2 | 3.5.1 | Reproducible test-fixture packaging |
 | Maven Install Plugin | implicit | 3.1.4 | Latest stable Maven 3-compatible install lifecycle |
 | Maven Dependency Plugin | 3.10.0 | 3.11.0 | Resolved runtime graph evidence |
-| Python evidence verifier | runner default | 3.14.7 | Pinned CI-only evidence validation; not a runtime dependency |
+| Python evidence verifier | runner default | 3.14.9 | Pinned CI-only evidence validation; not a runtime dependency |
 | Kotlin Maven compiler strategy | daemon process | in-process | Bounded, single-JVM release builds |
 | Apache MINA | 2.0.27 | 2.2.9 | ApacheDS test dependency |
 | Apache Tomcat Embed Core | 11.0.20 | 11.0.25 | Test dependency |
@@ -146,7 +146,7 @@ The maintained source closes the following boundaries identified by full-source 
 
 The standalone release gates `scripts/check-xml-parser-hardening` and `scripts/check-numeric-conversion-hardening` compile the affected production classes and exercise legitimate and malicious cases without requiring a running cache service. The canonical focused Maven suite additionally covers configuration URL, filesystem paths, uploads, JDBC URL and lifecycle behavior, phone-home, ECS metadata, multicast, serialization, XML, regular-expression complexity, and numeric bounds. The isolated class-loader integration test connects to the exact member address and cluster name it creates instead of relying on environment-dependent discovery. Potentially long-running groups have independent hard timeouts, so one failed setup cannot conceal or block later suites. The GitHub release gate requires all 40 named suites, including the two direct JSON utility suites, to produce a Surefire report, requires at least the verified 385-test baseline, and rejects any failure, error, skipped test, missing suite, or reduced test set. Its CodeQL evidence parser resolves rule metadata from both SARIF driver and extension components, rejects unresolved metadata, and blocks every result with a security score of 7.0 or higher.
 
-The reviewed core JAR build invokes Maven and the pinned JDK; it does not compile the repository's C source companions or package the optional Python extension. The gate records hashes for the tracked C headers, C sources, and prebuilt native resources, then requires the native bytes embedded in the JAR to match the tracked resources exactly. It also rejects Python extension resources in the core JAR. Python 3.14.7 is pinned only for evidence validation in CI. A C compiler therefore is not a hidden input to this artifact build, and the verifier Python is not a deployed runtime component.
+The reviewed core JAR build invokes Maven and the pinned JDK; it does not compile the repository's C source companions or package the optional Python extension. The gate records hashes for the tracked C headers, C sources, and prebuilt native resources, then requires the native bytes embedded in the JAR to match the tracked resources exactly. It also rejects Python extension resources in the core JAR. Python 3.14.9 is pinned only for evidence validation in CI. A C compiler therefore is not a hidden input to this artifact build, and the verifier Python is not a deployed runtime component.
 
 All Spring Boot 3 / Spring Framework 6 compatibility profiles and the `hazelcast-spring-boot3` artifact have been removed. The maintained runtime is Spring Boot 4 / Spring Framework 7 only. XML schema names such as `hazelcast-spring-5.7.xsd` identify the Hazelcast schema version and are unrelated to a Spring Framework dependency line.
 
