@@ -65,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/setup-ci-python-tools
+          python scripts/test-pasturestack-vulnerability-policy.py -v
 
       - name: Verify candidate identity and supply-chain pins
         id: candidate
@@ -384,7 +385,7 @@ jobs:
             -v "$trivy_cache:/root/.cache/trivy" \
             "$TRIVY_IMAGE" fs \
             --cache-dir /root/.cache/trivy --skip-db-update --offline-scan \
-            --scanners vuln,secret --severity CRITICAL,HIGH --format json \
+            --scanners vuln,secret --list-all-pkgs --format json \
             --output /evidence/source-security.json /scan
           docker run --rm --network none \
             -v "$PWD/dist:/artifact:ro" \
@@ -392,14 +393,14 @@ jobs:
             -v "$trivy_cache:/root/.cache/trivy" \
             "$TRIVY_IMAGE" rootfs --pkg-types library \
             --cache-dir /root/.cache/trivy --skip-db-update --offline-scan \
-            --scanners vuln --severity CRITICAL,HIGH --format json \
+            --scanners vuln --list-all-pkgs --format json \
             --output /evidence/hazelcast-5.7.6.trivy.json /artifact/hazelcast-5.7.6.jar
           docker run --rm --network none \
             -v "$PWD/evidence:/evidence" \
             -v "$trivy_cache:/root/.cache/trivy" \
             "$TRIVY_IMAGE" sbom \
             --cache-dir /root/.cache/trivy --skip-db-update --skip-java-db-update --offline-scan \
-            --scanners vuln --severity CRITICAL,HIGH --format json \
+            --scanners vuln --list-all-pkgs --format json \
             --output /evidence/hazelcast-5.7.6.sbom.trivy.json \
             /evidence/hazelcast-5.7.6.cdx.json
           sha256sum evidence/maven-effective-pom.xml \
@@ -409,10 +410,13 @@ jobs:
             evidence/native-resources.sha256 evidence/runtime-toolchain-boundary.txt \
             > evidence/security-evidence.sha256
 
-      - name: Enforce complete zero-Critical and zero-High evidence
+      - name: Enforce complete all-severity vulnerability evidence
         shell: bash
         run: |
           set -euo pipefail
+          for phase in source artifact dependencies; do
+            python scripts/pasturestack-enforce-vulnerabilities.py --phase "$phase"
+          done
           python scripts/pasturestack-verify-maven-evidence.py \
             --effective-pom evidence/maven-effective-pom.xml \
             --sbom evidence/hazelcast-5.7.6.cdx.json \
@@ -436,7 +440,6 @@ jobs:
               item
               for result in source.get('Results', [])
               for item in result.get('Vulnerabilities') or []
-              if item.get('Severity') in {'CRITICAL', 'HIGH'}
           ]
           source_secrets = [
               item
@@ -447,13 +450,11 @@ jobs:
               item
               for result in artifact.get('Results', [])
               for item in result.get('Vulnerabilities') or []
-              if item.get('Severity') in {'CRITICAL', 'HIGH'}
           ]
           dependency_vulnerabilities = [
               item
               for result in dependency_scan.get('Results', [])
               for item in result.get('Vulnerabilities') or []
-              if item.get('Severity') in {'CRITICAL', 'HIGH'}
           ]
           components = sbom.get('components') or []
           component_refs = [item.get('bom-ref') for item in components]
@@ -490,10 +491,10 @@ jobs:
               if not item.get('group') or not item.get('name') or not item.get('version') or not item.get('purl')
           ]
           summary = (
-              f'source_critical_high={len(source_vulnerabilities)}\n'
+              f'source_all_severities={len(source_vulnerabilities)}\n'
               f'source_secrets={len(source_secrets)}\n'
-              f'artifact_critical_high={len(artifact_vulnerabilities)}\n'
-              f'dependency_critical_high={len(dependency_vulnerabilities)}\n'
+              f'artifact_all_severities={len(artifact_vulnerabilities)}\n'
+              f'dependency_all_severities={len(dependency_vulnerabilities)}\n'
               f'sbom_spec={sbom.get("specVersion", "missing")}\n'
               f'sbom_components={len(components)}\n'
               f'sbom_dependencies={len(dependencies)}\n'
@@ -505,10 +506,7 @@ jobs:
           pathlib.Path('evidence/security-summary.txt').write_text(summary, encoding='utf-8')
           print(summary, end='')
           if (
-              source_vulnerabilities
-              or source_secrets
-              or artifact_vulnerabilities
-              or dependency_vulnerabilities
+              source_secrets
               or sbom.get('specVersion') != '1.6'
               or not components
               or missing_identity

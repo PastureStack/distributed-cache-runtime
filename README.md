@@ -13,6 +13,12 @@ not contain a JRE or Python runtime. The optional OCI build retains Ubuntu
 24.04 and installs its matching CA security update before the verified JDK.
 The generated Hazelcast cluster version remains `5.7.3`.
 
+The source, released JAR and resolved-runtime SBOM scans retain every severity.
+Any available fix, Critical/High/Unknown finding or secret blocks publication;
+only exact reviewed Low/Medium findings with official no-fix evidence can pass.
+The committed no-fix ledger is currently empty. This CI policy update does not
+change or republish the existing `5.7.6` JAR.
+
 Earlier public Maven artifacts remain immutable historical evidence. The
 current public GitHub Release is
 [`v5.7.6`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.6).
