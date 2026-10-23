@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
-Current source prepares `5.7.6` using the official Temurin `25.0.5+8`
+Release `5.7.6` uses the official Temurin `25.0.5+8`
 security update. CI uses Python `3.14.9`, pip `26.2.2`, and certifi
 `2026.10.19`. These are build and verification tools; the delivered JAR does
 not contain a JRE or Python runtime. The optional OCI build retains Ubuntu
@@ -12,18 +12,18 @@ The generated Hazelcast cluster version remains `5.7.3`.
 
 Earlier public Maven artifacts remain immutable historical evidence. The
 current public GitHub Release is
-[`v5.7.5`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.5).
-It publishes the exact reviewed `hazelcast-5.7.5.jar` from source
-`a9aea563870201462dc24f778a06279a08ed5841`, with SHA-256
-`0f536a9c7bcd00f2369586fb6ca1606f7e45f3225e24795d10d38397051c8715`.
-See [5.7.5 release notes](RELEASE-NOTES-5.7.5.md) for its focused tests,
+[`v5.7.6`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.6).
+It publishes the exact reviewed `hazelcast-5.7.6.jar` from signed source
+`bd071c12bc11808a5f91e8b5d0308decd79e5af9`, with SHA-256
+`825b5fc9526a10549bcb580f2d6c03bf1f5667625661722c0406ea6f796e83f2`.
+See [5.7.6 release notes](RELEASE-NOTES-5.7.6.md) for its focused tests,
 embedded Jackson versions and verification boundaries. The Engine consumes
 this GitHub release asset; no new OCI/GHCR carrier is published by this release.
 Source dependency-management floors are LZ4 `1.11.4` for optional Kafka
 connectors and RabbitMQ Java client `5.37.0` for JMS integration tests.
-Both are absent from the published `5.7.5` core JAR, its resolved runtime tree,
-and its release SBOM; this source-only maintenance does not require a new core
-artifact or downstream Engine release. See the dependency assessments in
+Both are absent from the core JAR, its resolved runtime tree,
+and release SBOM; they do not drive the JDK rebuild in this release.
+See the dependency assessments in
 [SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md#lz4-source-floor-and-release-impact).
 Every current and future PastureStack publication
 uses a pure numeric version, while
