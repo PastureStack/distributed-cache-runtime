@@ -3,6 +3,15 @@ import argparse
 import json
 from pathlib import Path
 
+REPOSITORY = "PastureStack/distributed-cache-runtime"
+ROOT = Path(__file__).resolve().parent.parent
+REPORTS = {
+    "source": ROOT / "evidence/source-security.json",
+    "artifact": ROOT / "evidence/hazelcast-5.7.6.trivy.json",
+    "dependencies": ROOT / "evidence/hazelcast-5.7.6.sbom.trivy.json",
+}
+LEDGER = ROOT / ".github/runtime-unfixed.json"
+
 
 def violations(report, ledger, repository):
     if (not isinstance(report, dict) or report.get("SchemaVersion") != 2
@@ -47,12 +56,10 @@ def violations(report, ledger, repository):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("report")
-    parser.add_argument("ledger")
-    parser.add_argument("--repository", required=True)
+    parser.add_argument("--phase", choices=tuple(REPORTS), required=True)
     args = parser.parse_args()
-    failures = violations(json.loads(Path(args.report).read_text(encoding="utf-8")),
-                          json.loads(Path(args.ledger).read_text(encoding="utf-8")), args.repository)
+    failures = violations(json.loads(REPORTS[args.phase].read_text(encoding="utf-8")),
+                          json.loads(LEDGER.read_text(encoding="utf-8")), REPOSITORY)
     if failures:
         raise SystemExit("Release vulnerability policy failed:\n" + "\n".join(failures))
     print("RELEASE_VULNERABILITY_POLICY_OK")

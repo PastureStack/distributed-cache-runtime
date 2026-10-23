@@ -414,9 +414,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for report in evidence/source-security.json evidence/hazelcast-5.7.6.trivy.json evidence/hazelcast-5.7.6.sbom.trivy.json; do
-            python scripts/pasturestack-enforce-vulnerabilities.py "$report" \
-              .github/runtime-unfixed.json --repository PastureStack/distributed-cache-runtime
+          for phase in source artifact dependencies; do
+            python scripts/pasturestack-enforce-vulnerabilities.py --phase "$phase"
           done
           python scripts/pasturestack-verify-maven-evidence.py \
             --effective-pom evidence/maven-effective-pom.xml \
