@@ -3,6 +3,13 @@
 > [!IMPORTANT]
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
+Current source prepares `5.7.6` using the official Temurin `25.0.5+8`
+security update. CI uses Python `3.14.9`, pip `26.2.2`, and certifi
+`2026.10.19`. These are build and verification tools; the delivered JAR does
+not contain a JRE or Python runtime. The optional OCI build retains Ubuntu
+24.04 and installs its matching CA security update before the verified JDK.
+The generated Hazelcast cluster version remains `5.7.3`.
+
 Earlier public Maven artifacts remain immutable historical evidence. The
 current public GitHub Release is
 [`v5.7.5`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.5).

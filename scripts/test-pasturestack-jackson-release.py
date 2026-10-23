@@ -132,16 +132,16 @@ class JacksonReleaseGateTest(unittest.TestCase):
             project = ElementTree.parse(path).getroot()
             for parent in project.findall("m:parent", NS):
                 if parent.findtext("m:groupId", namespaces=NS) == "com.hazelcast":
-                    self.assertEqual(parent.findtext("m:version", namespaces=NS), "5.7.5", path)
+                    self.assertEqual(parent.findtext("m:version", namespaces=NS), "5.7.6", path)
             if project.findtext("m:groupId", namespaces=NS) == "com.hazelcast":
                 version = project.findtext("m:version", namespaces=NS)
                 if version is not None:
-                    self.assertEqual(version, "5.7.5", path)
+                    self.assertEqual(version, "5.7.6", path)
             if "/console/testjob-" in path.as_posix():
                 fixtures += 1
                 dependency = project.find("m:dependencies/m:dependency[m:groupId='com.hazelcast']", NS)
                 self.assertIsNotNone(dependency, path)
-                self.assertEqual(dependency.findtext("m:version", namespaces=NS), "5.7.5", path)
+                self.assertEqual(dependency.findtext("m:version", namespaces=NS), "5.7.6", path)
         self.assertEqual(fixtures, 3)
         parent = ElementTree.parse(ROOT / "hazelcast-parent/pom.xml").getroot()
         self.assertEqual(parent.findtext("m:properties/m:hazelcast.runtime.version", namespaces=NS), "5.7.3")
@@ -187,10 +187,10 @@ class JacksonReleaseGateTest(unittest.TestCase):
         )
         verifier = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(verifier)
-        self.assertEqual(verifier.EXPECTED_RUNTIME, ("com.hazelcast", "hazelcast", "5.7.5"))
+        self.assertEqual(verifier.EXPECTED_RUNTIME, ("com.hazelcast", "hazelcast", "5.7.6"))
         with tempfile.TemporaryDirectory() as name:
             path = Path(name) / "effective-pom.xml"
-            for version in ("5.7.5", "5.7.4"):
+            for version in ("5.7.6", "5.7.5"):
                 path.write_text(
                     '<projects xmlns="http://maven.apache.org/POM/4.0.0"><project>'
                     '<groupId>com.hazelcast</groupId><artifactId>hazelcast</artifactId>'
@@ -200,7 +200,7 @@ class JacksonReleaseGateTest(unittest.TestCase):
                     '<artifactId>maven-compiler-plugin</artifactId><version>3.15.0</version>'
                     '</plugin></plugins></build></project></projects>', encoding="utf-8"
                 )
-                if version == "5.7.5":
+                if version == "5.7.6":
                     self.assertEqual(verifier.validate_effective_pom(path)["effective_pom_projects"], 1)
                 else:
                     with self.assertRaisesRegex(ValueError, "expected runtime"):
