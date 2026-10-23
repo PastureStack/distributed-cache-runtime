@@ -4,7 +4,7 @@
 
 The PastureStack maintenance delta intentionally preserves the Hazelcast 5.7.0 API while updating reviewed runtime and build-time dependencies with published security fixes:
 
-The current published Maven artifact is `5.7.5`, from signed tag `v5.7.5` and source `a9aea563870201462dc24f778a06279a08ed5841`; it is based on upstream `5.7.0`, not an upstream Hazelcast release. Public `v5.7.4` remains immutable historical evidence. Hazelcast's cluster protocol parser accepts numeric product versions only, so generated runtime metadata deliberately reports `5.7.3`. The artifact version must be used by Maven coordinates, filenames, any artifact carrier, SBOM, and release evidence; the numeric runtime version must be used by cluster/member compatibility code. See [5.7.5 release notes](RELEASE-NOTES-5.7.5.md) for the narrow Jackson update, exact artifact and validation boundaries.
+The current published Maven artifact is `5.7.6`, from signed tag `v5.7.6` and source `bd071c12bc11808a5f91e8b5d0308decd79e5af9`; it is based on upstream `5.7.0`, not an upstream Hazelcast release. Public `v5.7.4` and `v5.7.5` remain immutable historical evidence. Hazelcast's cluster protocol parser accepts numeric product versions only, so generated runtime metadata deliberately reports `5.7.3`. The artifact version must be used by Maven coordinates, filenames, any artifact carrier, SBOM, and release evidence; the numeric runtime version must be used by cluster/member compatibility code. See [5.7.6 release notes](RELEASE-NOTES-5.7.6.md) for the patched build toolchains, exact artifact and validation boundaries.
 
 | Component | Upstream 5.7.0 | PastureStack maintained version | Scope |
 | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ The current published Maven artifact is `5.7.5`, from signed tag `v5.7.5` and so
 | Checkstyle | 12.3.1 | 14.0.0 | Build-time source policy |
 | gRPC Java / Python | 1.73.0 | 1.83.1 / 1.83.0 | gRPC and cloud extension dependencies |
 | Aircompressor | 2.0.2 | 2.0.3 | Current Parquet 1.18 byte-array codec dependency; Aircompressor v3 uses a different artifact/package and MemorySegment API |
-| Hazelcast test-job dependency | 5.0.5 | 5.7.5 | Command-line integration test fixtures |
+| Hazelcast test-job dependency | 5.0.5 | 5.7.6 | Command-line integration test fixtures |
 | Maven Compiler Plugin | implicit | 3.15.0 | Reproducible test-fixture builds |
 | Maven JAR Plugin | 3.1.2 | 3.5.1 | Reproducible test-fixture packaging |
 | Maven Install Plugin | implicit | 3.1.4 | Latest stable Maven 3-compatible install lifecycle |

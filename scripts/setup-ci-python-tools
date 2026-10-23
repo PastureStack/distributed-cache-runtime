@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Install only CI verification tools; shipped browser/JAR artifacts are unchanged.
+set -Eeuo pipefail
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/pasturestack-ci-python.XXXXXX")
+python "$root/tools/pip-security-overlay/build-pip-overlay.py" --work "$work/build" --output "$work/dist"
+python -m venv --without-pip "$work/env"
+export PATH="$work/env/bin:$PATH"
+PYTHONPATH="$work/dist/pip-26.2.2+pasturestack.1-py3-none-any.whl" \
+  python -m pip install --no-index --no-deps "$work/dist/pip-26.2.2+pasturestack.1-py3-none-any.whl"
+python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: \
+  --find-links "$work/dist" -r "$root/scripts/ci-python-requirements.lock"
+python -c "import sys,pip,certifi,pip._vendor.certifi as bundled; assert sys.version_info[:3]==(3,14,9); assert pip.__version__=='26.2.2+pasturestack.1'; assert certifi.__version__==bundled.__version__=='2026.10.19'; print(sys.version,pip.__version__,certifi.__version__,bundled.__version__)"
+python "$root/tools/pip-security-overlay/test-pip-overlay.py"
+printf '%s\n' "$work/env/bin" >>"${GITHUB_PATH:?GitHub Actions path file is required}"
