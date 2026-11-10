@@ -44,6 +44,7 @@ grep -Fq '<checkstyle.version>14.0.0</checkstyle.version>' hazelcast-parent/pom.
 grep -Fq '<avro.version>1.12.2</avro.version>' hazelcast-parent/pom.xml
 grep -Fq '<janino.version>3.1.12</janino.version>' hazelcast-parent/pom.xml
 grep -Fq '<json.version>20260719</json.version>' hazelcast-parent/pom.xml
+grep -A2 -F '<artifactId>guava</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>33.7.2-jre</version>'
 grep -Fq '<jackson3.version>3.2.3</jackson3.version>' hazelcast-parent/pom.xml
 grep -Fq '<jackson2.version>2.22.3</jackson2.version>' hazelcast-parent/pom.xml
 grep -Fq '<parquet.version>1.18.0</parquet.version>' hazelcast-parent/pom.xml

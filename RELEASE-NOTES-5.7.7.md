@@ -16,3 +16,11 @@ The build rejects missing, duplicate or old embedded org.json version metadata.
 Publication still requires the existing source, artifact, dependency and
 CodeQL gates. Previous tags and artifacts remain immutable. This candidate
 does not claim downstream Engine or Server deployment acceptance.
+
+The current source scan also identified CVE-2026-102554 in managed Guava
+33.7.1-jre. Its official 33.7.2-jre patch is applied to all inherited consumers,
+including SQL/connectors and test dependencies. The core runtime's actual
+resolved dependency tree and shaded artifact determine whether Guava is
+packaged; a source floor is not reported as a core runtime vulnerability.
+The existing SQL/parser and connector compile/test gates remain required.
+Official advisory: https://github.com/google/guava/security/advisories/GHSA-xxph-c9ww-hj94 .

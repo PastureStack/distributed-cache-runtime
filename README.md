@@ -4,7 +4,8 @@
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
 The development candidate is `5.7.7`, which updates the relocated org.json
-library to official `20260719` for CVE-2026-59171. It preserves Hazelcast cluster
+library to official `20260719` for CVE-2026-59171 and managed Guava to
+`33.7.2-jre` for CVE-2026-102554. It preserves Hazelcast cluster
 version `5.7.3` and the existing Jackson versions. See the
 [5.7.7 candidate notes](RELEASE-NOTES-5.7.7.md) for the patch and focused checks.
 

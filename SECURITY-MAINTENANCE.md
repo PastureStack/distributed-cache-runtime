@@ -8,7 +8,9 @@ The `5.7.7` development candidate pins the transitive and relocated org.json
 library to official `20260719` for CVE-2026-59171. Its source and delivered-JAR
 checks cover long integer/decimal tokens, exponent conversion and ordinary
 configuration. Client/member YAML schema tests preserve the existing config
-contracts. This candidate is not yet a published or deployed artifact.
+contracts. The managed Guava floor also advances to official 33.7.2-jre for
+CVE-2026-102554; actual packaging is checked independently from source presence.
+This candidate is not yet a published or deployed artifact.
 
 The current published Maven artifact is `5.7.6`, from signed tag `v5.7.6` and source `bd071c12bc11808a5f91e8b5d0308decd79e5af9`; it is based on upstream `5.7.0`, not an upstream Hazelcast release. Public `v5.7.4` and `v5.7.5` remain immutable historical evidence. Hazelcast's cluster protocol parser accepts numeric product versions only, so generated runtime metadata deliberately reports `5.7.3`. The artifact version must be used by Maven coordinates, filenames, any artifact carrier, SBOM, and release evidence; the numeric runtime version must be used by cluster/member compatibility code. See [5.7.6 release notes](RELEASE-NOTES-5.7.6.md) for the patched build toolchains, exact artifact and validation boundaries.
 
