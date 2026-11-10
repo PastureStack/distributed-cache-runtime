@@ -4,15 +4,15 @@
 
 The PastureStack maintenance delta intentionally preserves the Hazelcast 5.7.0 API while updating reviewed runtime and build-time dependencies with published security fixes:
 
-The `5.7.7` development candidate pins the transitive and relocated org.json
-library to official `20260719` for CVE-2026-59171. Its source and delivered-JAR
-checks cover long integer/decimal tokens, exponent conversion and ordinary
-configuration. Client/member YAML schema tests preserve the existing config
-contracts. The managed Guava floor also advances to official 33.7.2-jre for
-CVE-2026-102554; actual packaging is checked independently from source presence.
-This candidate is not yet a published or deployed artifact.
-
-The current published Maven artifact is `5.7.6`, from signed tag `v5.7.6` and source `bd071c12bc11808a5f91e8b5d0308decd79e5af9`; it is based on upstream `5.7.0`, not an upstream Hazelcast release. Public `v5.7.4` and `v5.7.5` remain immutable historical evidence. Hazelcast's cluster protocol parser accepts numeric product versions only, so generated runtime metadata deliberately reports `5.7.3`. The artifact version must be used by Maven coordinates, filenames, any artifact carrier, SBOM, and release evidence; the numeric runtime version must be used by cluster/member compatibility code. See [5.7.6 release notes](RELEASE-NOTES-5.7.6.md) for the patched build toolchains, exact artifact and validation boundaries.
+The current published Maven artifact is `5.7.7`, from signed source
+`9f364be88cf92b267158005fed1c424221058bf8` and immutable tag `v5.7.7`.
+It is based on upstream `5.7.0`. Official org.json `20260719` fixes the relocated
+copy affected by CVE-2026-59171. The managed Guava floor is `33.7.2-jre` for
+CVE-2026-102554; Guava is absent from the core runtime SBOM. Artifact filenames,
+Maven coordinates and SBOM use `5.7.7`; generated cluster metadata remains
+`5.7.3`. Existing Jackson and serialization contracts are preserved.
+See [5.7.7 release notes](RELEASE-NOTES-5.7.7.md) for original CI, class comparison,
+SBOM and publication evidence. Older public releases remain immutable history.
 
 | Component | Upstream 5.7.0 | PastureStack maintained version | Scope |
 | --- | --- | --- | --- |
@@ -32,7 +32,7 @@ The current published Maven artifact is `5.7.6`, from signed tag `v5.7.6` and so
 | Checkstyle | 12.3.1 | 14.0.0 | Build-time source policy |
 | gRPC Java / Python | 1.73.0 | 1.83.1 / 1.83.0 | gRPC and cloud extension dependencies |
 | Aircompressor | 2.0.2 | 2.0.3 | Current Parquet 1.18 byte-array codec dependency; Aircompressor v3 uses a different artifact/package and MemorySegment API |
-| Hazelcast test-job dependency | 5.0.5 | 5.7.6 | Command-line integration test fixtures |
+| Hazelcast test-job dependency | 5.0.5 | 5.7.7 | Command-line integration test fixtures |
 | Maven Compiler Plugin | implicit | 3.15.0 | Reproducible test-fixture builds |
 | Maven JAR Plugin | 3.1.2 | 3.5.1 | Reproducible test-fixture packaging |
 | Maven Install Plugin | implicit | 3.1.4 | Latest stable Maven 3-compatible install lifecycle |

@@ -3,42 +3,28 @@
 > [!IMPORTANT]
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
-The development candidate is `5.7.7`, which updates the relocated org.json
-library to official `20260719` for CVE-2026-59171 and managed Guava to
-`33.7.2-jre` for CVE-2026-102554. It preserves Hazelcast cluster
-version `5.7.3` and the existing Jackson versions. See the
-[5.7.7 candidate notes](RELEASE-NOTES-5.7.7.md) for the patch and focused checks.
+The current release is [`v5.7.7`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.7).
+It includes official org.json `20260719` for CVE-2026-59171 and the managed
+Guava `33.7.2-jre` security update for CVE-2026-102554. Guava is not in the core
+runtime JAR. The Maven artifact is `5.7.7`; the cluster protocol remains `5.7.3`.
+Existing Jackson versions are preserved.
 
-Builds use verified Temurin `25.0.5+8`, Python `3.14.9`, the reviewed internal
-pip rebuild and pinned CA certificates. These tools are not included in the
-core JAR. Source, actual artifact and resolved-runtime SBOM scans retain all
-severities: any available fix, Critical/High/Unknown finding or secret blocks
-publication. Only exact reviewed Low/Medium findings with official no-fix
-evidence may pass; the committed no-fix ledger is currently empty.
+The released JAR comes from signed source
+`9f364be88cf92b267158005fed1c424221058bf8`, with SHA-256
+`a72ddfd7638527cbccd79d9d3e3611e2979cadd78e615381f230c07a2767b631`.
+It is the exact original CI artifact. The release includes the CycloneDX 1.6
+runtime SBOM, resolved Maven evidence, raw scans and test summaries.
+[524 tests in 45 suites](https://github.com/PastureStack/distributed-cache-runtime/actions/runs/42759219933)
+and required CodeQL checks passed. Source, JAR and dependency scans found zero
+findings at every severity. See [release notes](RELEASE-NOTES-5.7.7.md).
 
-Earlier public Maven artifacts remain immutable historical evidence. The
-current public GitHub Release is
-[`v5.7.6`](https://github.com/PastureStack/distributed-cache-runtime/releases/tag/v5.7.6).
-It publishes the exact reviewed `hazelcast-5.7.6.jar` from signed source
-`bd071c12bc11808a5f91e8b5d0308decd79e5af9`, with SHA-256
-`825b5fc9526a10549bcb580f2d6c03bf1f5667625661722c0406ea6f796e83f2`.
-See [5.7.6 release notes](RELEASE-NOTES-5.7.6.md) for its focused tests,
-embedded Jackson versions and verification boundaries. The Engine consumes
-this GitHub release asset; no new OCI/GHCR carrier is published by this release.
-Source dependency-management floors are LZ4 `1.11.4` for optional Kafka
-connectors and RabbitMQ Java client `5.37.0` for JMS integration tests.
-Both are absent from the core JAR, its resolved runtime tree,
-and release SBOM; they do not drive the JDK rebuild in this release.
-See the dependency assessments in
-[SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md#lz4-source-floor-and-release-impact).
-Every current and future PastureStack publication
-uses a pure numeric version, while
-product identity and provenance remain in metadata rather than the version.
-Generated Hazelcast cluster metadata reports numeric runtime version `5.7.3`,
-because the cluster protocol does not accept a Maven qualifier. See
-[ORIGIN.md](ORIGIN.md) for provenance and
-[SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for the exact delta and
-release gates. The original upstream README follows unchanged below.
+Verified JDK, Python and CA tools are build dependencies, not delivered
+runtimes. No OCI carrier is published by this release. Available fixes,
+Critical/High/Unknown findings and secrets block publication; only exact,
+reviewed unfixed Low/Medium findings may pass. The no-fix ledger is empty.
+Previous tags remain immutable. Product identity belongs in metadata, while
+release versions remain numeric. See [ORIGIN.md](ORIGIN.md) and
+[SECURITY-MAINTENANCE.md](SECURITY-MAINTENANCE.md) for maintenance boundaries.
 
 ---
 
