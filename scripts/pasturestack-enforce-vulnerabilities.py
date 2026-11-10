@@ -7,8 +7,8 @@ REPOSITORY = "PastureStack/distributed-cache-runtime"
 ROOT = Path(__file__).resolve().parent.parent
 REPORTS = {
     "source": ROOT / "evidence/source-security.json",
-    "artifact": ROOT / "evidence/hazelcast-5.7.6.trivy.json",
-    "dependencies": ROOT / "evidence/hazelcast-5.7.6.sbom.trivy.json",
+    "artifact": ROOT / "evidence/hazelcast-5.7.7.trivy.json",
+    "dependencies": ROOT / "evidence/hazelcast-5.7.7.sbom.trivy.json",
 }
 LEDGER = ROOT / ".github/runtime-unfixed.json"
 

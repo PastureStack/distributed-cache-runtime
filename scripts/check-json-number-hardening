@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Exercise the relocated classes in the delivered JAR, not a test dependency.
+jar_path=$(realpath "${1:?usage: check-json-number-hardening runtime.jar}")
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+cat > "$tmp/CheckJsonNumber.java" <<'JAVA'
+import com.hazelcast.shaded.org.json.JSONArray;
+import com.hazelcast.shaded.org.json.JSONObject;
+import com.hazelcast.shaded.org.json.XML;
+import java.math.BigInteger;
+
+public final class CheckJsonNumber {
+    public static void main(String[] args) {
+        String digits = "9".repeat(10000);
+        for (String value : new String[]{digits, "-" + digits, digits + ".1"}) {
+            equal(value, new JSONObject("{\"n\":" + value + "}").get("n"));
+            equal(value, new JSONArray("[" + value + "]").get(0));
+            equal(value, XML.toJSONObject("<n>" + value + "</n>").get("n"));
+        }
+        equal(BigInteger.TEN, new JSONObject("{\"n\":1e100000}").optBigInteger("n", BigInteger.TEN));
+        equal(5701, new JSONObject("{\"port\":5701}").getInt("port"));
+        equal(BigInteger.valueOf(1000), new JSONObject("{\"n\":1e3}").getBigInteger("n"));
+        System.out.println("DISTRIBUTED_CACHE_SHADED_JSON_OK hostile=10 legitimate=2");
+    }
+    private static void equal(Object expected, Object actual) {
+        if (!expected.equals(actual)) {
+            throw new AssertionError("JSON numeric conversion boundary mismatch");
+        }
+    }
+}
+JAVA
+javac --release 25 -cp "$jar_path" -d "$tmp" "$tmp/CheckJsonNumber.java"
+timeout --signal=TERM --kill-after=5s 20s java -Xmx128m -cp "$tmp:$jar_path" CheckJsonNumber

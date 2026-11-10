@@ -3,21 +3,18 @@
 > [!IMPORTANT]
 > This repository is a narrowly scoped PastureStack fork of Hazelcast 5.7.0. It preserves the upstream Git history, copyright notices, license files, and authorship. PastureStack does not claim ownership of upstream work and is not affiliated with or endorsed by Hazelcast, Inc.
 
-Release `5.7.6` uses the official Temurin `25.0.5+8`
-security update. CI uses Python `3.14.9`, the internal pip
-`26.2.2+pasturestack.1` rebuild with patched urllib3 `2.8.0`, and certifi
-`2026.10.19`. A frozen upstream-vendoring helper verifies input/wheel hashes
-and streaming/TLS behavior in an isolated CI environment. This CI-only update
-does not replace the existing release artifact. These are verification tools; the delivered JAR does
-not contain a JRE or Python runtime. The optional OCI build retains Ubuntu
-24.04 and installs its matching CA security update before the verified JDK.
-The generated Hazelcast cluster version remains `5.7.3`.
+The development candidate is `5.7.7`, which updates the relocated org.json
+library to official `20260719` for CVE-2026-59171 and managed Guava to
+`33.7.2-jre` for CVE-2026-102554. It preserves Hazelcast cluster
+version `5.7.3` and the existing Jackson versions. See the
+[5.7.7 candidate notes](RELEASE-NOTES-5.7.7.md) for the patch and focused checks.
 
-The source, released JAR and resolved-runtime SBOM scans retain every severity.
-Any available fix, Critical/High/Unknown finding or secret blocks publication;
-only exact reviewed Low/Medium findings with official no-fix evidence can pass.
-The committed no-fix ledger is currently empty. This CI policy update does not
-change or republish the existing `5.7.6` JAR.
+Builds use verified Temurin `25.0.5+8`, Python `3.14.9`, the reviewed internal
+pip rebuild and pinned CA certificates. These tools are not included in the
+core JAR. Source, actual artifact and resolved-runtime SBOM scans retain all
+severities: any available fix, Critical/High/Unknown finding or secret blocks
+publication. Only exact reviewed Low/Medium findings with official no-fix
+evidence may pass; the committed no-fix ledger is currently empty.
 
 Earlier public Maven artifacts remain immutable historical evidence. The
 current public GitHub Release is

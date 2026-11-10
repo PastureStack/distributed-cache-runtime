@@ -23,7 +23,7 @@
     <groupId>com.hazelcast</groupId>
     <artifactId>hazelcast-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.7.6</version>
+    <version>5.7.7</version>
 
     <name>Hazelcast Parent POM</name>
     <description>Provides a base configuration for Hazelcast Platform builds</description>
@@ -118,6 +118,7 @@
         <jackson.annotation.version>2.22</jackson.annotation.version>
         <jline.version>4.3.1</jline.version>
         <json-surfer.version>0.13</json-surfer.version>
+        <json.version>20260719</json.version>
         <jsr107.api.version>1.1.1</jsr107.api.version> <!-- JCache -->
         <netty.version>4.2.17.Final</netty.version>
         <!--
@@ -211,6 +212,12 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- CVE-2026-59171: also governs the relocated copy in the core runtime. -->
+            <dependency>
+                <groupId>org.json</groupId>
+                <artifactId>json</artifactId>
+                <version>${json.version}</version>
+            </dependency>
             <!--
             Pin dependencies to particular version.
 
@@ -804,7 +811,7 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>33.7.1-jre</version>
+                <version>33.7.2-jre</version>
             </dependency>
             <dependency>
                 <groupId>com.google.code.gson</groupId>

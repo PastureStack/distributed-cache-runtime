@@ -3,14 +3,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-runtime_version=5.7.6
+runtime_version=5.7.7
 output_dir=${PASTURESTACK_OUTPUT_DIR:-dist}
 jar_source="hazelcast/target/hazelcast-${runtime_version}.jar"
 jar_target="${output_dir}/hazelcast-${runtime_version}.jar"
 
 # Fail before compiling if a reviewed security floor is accidentally reverted.
 if find . -name pom.xml -type f -exec grep -l '<version>5.7.0</version>' {} + | grep -q .; then
-    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.6' >&2
+    echo 'PASTURESTACK_PROJECT_VERSION_MISMATCH expected=5.7.7' >&2
     exit 1
 fi
 grep -Fq '<spring.boot.version>4.1.1</spring.boot.version>' hazelcast-parent/pom.xml
@@ -43,6 +43,8 @@ grep -Fq '<checkstyle.version>14.0.0</checkstyle.version>' hazelcast-parent/pom.
 ! grep -Fq '<module name="JavadocStyle">' checkstyle/checkstyle.xml
 grep -Fq '<avro.version>1.12.2</avro.version>' hazelcast-parent/pom.xml
 grep -Fq '<janino.version>3.1.12</janino.version>' hazelcast-parent/pom.xml
+grep -Fq '<json.version>20260719</json.version>' hazelcast-parent/pom.xml
+grep -A2 -F '<artifactId>guava</artifactId>' hazelcast-parent/pom.xml | grep -Fq '<version>33.7.2-jre</version>'
 grep -Fq '<jackson3.version>3.2.3</jackson3.version>' hazelcast-parent/pom.xml
 grep -Fq '<jackson2.version>2.22.3</jackson2.version>' hazelcast-parent/pom.xml
 grep -Fq '<parquet.version>1.18.0</parquet.version>' hazelcast-parent/pom.xml
@@ -123,9 +125,9 @@ grep -Fq '<version>${postgresql.version}</version>' hazelcast-parent/pom.xml
 grep -Fq '<version>${tomcat.embed.version}</version>' pom.xml
 grep -Fq '<groupId>org.hibernate.orm</groupId>' hazelcast-it/distribution-it/pom.xml
 grep -Fq '<version>${hibernate.orm.version}</version>' hazelcast-it/distribution-it/pom.xml
-grep -Fq '<version>5.7.6</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
-grep -Fq '<version>5.7.6</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
-grep -Fq '<version>5.7.6</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
+grep -Fq '<version>5.7.7</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
+grep -Fq '<version>5.7.7</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
+grep -Fq '<version>5.7.7</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hazelcast-codebase/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-hz-bootstrap/pom.xml
 grep -Fq '<version>3.15.0</version>' hazelcast/src/test/resources/com/hazelcast/client/console/testjob-with-jet-bootstrap/pom.xml
@@ -204,7 +206,8 @@ jar --update \
         META-INF/maven/com.fasterxml.jackson.core/jackson-core/pom.properties \
         META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties \
         META-INF/maven/tools.jackson.core/jackson-core/pom.properties \
-        META-INF/maven/tools.jackson.core/jackson-databind/pom.properties
+        META-INF/maven/tools.jackson.core/jackson-databind/pom.properties \
+        META-INF/maven/org.json/json/pom.properties
 )
 
 cmp "$license_source" "$metadata_dir/META-INF/LICENSE"
@@ -214,6 +217,8 @@ test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.fasterxml.jack
 test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties")" = "2.22.3"
 test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/tools.jackson.core/jackson-core/pom.properties")" = "3.2.3"
 test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/tools.jackson.core/jackson-databind/pom.properties")" = "3.2.3"
+test "$(sed -n 's/^version=//p' "$metadata_dir/META-INF/maven/org.json/json/pom.properties")" = "20260719"
+jar tf "$jar_target" | grep -Fxq com/hazelcast/shaded/org/json/JSONObject.class
 javap -classpath "$jar_target" -constants com.hazelcast.instance.GeneratedBuildProperties \
     > "$metadata_dir/generated-build-properties.txt"
 grep -Fq "REVISION = \"${vcs_abbrev}\";" "$metadata_dir/generated-build-properties.txt"
